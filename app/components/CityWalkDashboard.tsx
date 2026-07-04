@@ -59,12 +59,36 @@ type StopControl = {
 };
 
 type Vehicle = {
-  roadIndex: number;
+  routeIndex: number;
   lane: number;
   progress: number;
   speedBias: number;
   queueOffset: number;
   color: string;
+};
+
+type RouteStep = {
+  roadIndex: number;
+  direction: 1 | -1;
+  startKey: string;
+  endKey: string;
+  length: number;
+};
+
+type VehicleRoute = {
+  id: string;
+  steps: RouteStep[];
+  cumulative: number[];
+  length: number;
+};
+
+type RouteSample = {
+  road: CompiledRoad;
+  roadIndex: number;
+  direction: 1 | -1;
+  x: number;
+  y: number;
+  angle: number;
 };
 
 type MapSize = {
@@ -160,6 +184,21 @@ function seeded(seed: string) {
   };
 }
 
+function coordinateKey(coordinate: LatLon) {
+  return `${coordinate[0].toFixed(5)},${coordinate[1].toFixed(5)}`;
+}
+
+function normalizeAngle(angle: number) {
+  let next = angle;
+  while (next <= -Math.PI) next += Math.PI * 2;
+  while (next > Math.PI) next -= Math.PI * 2;
+  return next;
+}
+
+function angleDifference(a: number, b: number) {
+  return Math.abs(normalizeAngle(a - b));
+}
+
 function phaseForSignal(signal: OsmSignal, seconds: number) {
   const cycle = 72 + (signal.osmId % 5) * 6;
   const offset = signal.osmId % cycle;
@@ -247,7 +286,7 @@ function compileRoads(roads: OsmRoad[], signals: OsmSignal[]) {
 
     const stopControls = signalPoints
       .map(({ signal, point }) => ({ signal, ...nearestProgress(points, lengths, cumulative, totalLength, point) }))
-      .filter((stop) => stop.distance < 18 && stop.progress > 0.03 && stop.progress < 0.97)
+      .filter((stop) => stop.distance < 24 && stop.progress > 0.005 && stop.progress < 0.995)
       .sort((a, b) => a.progress - b.progress)
       .filter((stop, index, list) => index === 0 || Math.abs(stop.progress - list[index - 1].progress) > 0.025)
       .map(({ signal, progress }) => ({ signal, progress }));
@@ -261,6 +300,118 @@ function compileRoads(roads: OsmRoad[], signals: OsmSignal[]) {
       labelPoint: { x: labelSample.x, y: labelSample.y },
       labelAngle: labelSample.angle,
       stopControls
+    };
+  });
+}
+
+function stepAngle(road: CompiledRoad, direction: 1 | -1) {
+  const points = direction === 1 ? road.points : [...road.points].reverse();
+  const start = points[0];
+  const end = points[Math.min(points.length - 1, 1)];
+  return Math.atan2(end.y - start.y, end.x - start.x);
+}
+
+function candidateDirections(road: OsmRoad): Array<1 | -1> {
+  if (!road.oneway || road.onewayDirection === "both") return [1, -1];
+  return road.onewayDirection === "reverse" ? [-1] : [1];
+}
+
+function routeStepForRoad(road: CompiledRoad, roadIndex: number, direction: 1 | -1): RouteStep {
+  const first = road.road.coordinates[0];
+  const last = road.road.coordinates[road.road.coordinates.length - 1];
+
+  return {
+    roadIndex,
+    direction,
+    startKey: direction === 1 ? coordinateKey(first) : coordinateKey(last),
+    endKey: direction === 1 ? coordinateKey(last) : coordinateKey(first),
+    length: road.length
+  };
+}
+
+function routeStepExitAngle(road: CompiledRoad, direction: 1 | -1) {
+  const points = direction === 1 ? road.points : [...road.points].reverse();
+  const end = points[points.length - 1];
+  const before = points[Math.max(0, points.length - 2)];
+  return Math.atan2(end.y - before.y, end.x - before.x);
+}
+
+function chooseNextStep(
+  current: RouteStep,
+  options: RouteStep[],
+  compiledRoads: CompiledRoad[],
+  visited: Set<string>,
+  random: () => number
+) {
+  const currentRoad = compiledRoads[current.roadIndex].road;
+  const exitAngle = routeStepExitAngle(compiledRoads[current.roadIndex], current.direction);
+
+  return options
+    .filter((option) => !(option.roadIndex === current.roadIndex && option.direction === -current.direction))
+    .filter((option) => !visited.has(`${option.roadIndex}:${option.direction}`))
+    .map((option) => {
+      const nextRoad = compiledRoads[option.roadIndex].road;
+      const entryAngle = stepAngle(compiledRoads[option.roadIndex], option.direction);
+      const sameNamedCorridor = nextRoad.name === currentRoad.name || (!!nextRoad.ref && nextRoad.ref === currentRoad.ref);
+      const priorityMatch = nextRoad.priority === currentRoad.priority;
+      const rankPenalty = Math.abs((roadRank[nextRoad.highway] ?? 1) - (roadRank[currentRoad.highway] ?? 1)) * 0.08;
+      const score = angleDifference(exitAngle, entryAngle) + rankPenalty - (sameNamedCorridor ? 0.7 : 0) - (priorityMatch ? 0.12 : 0) + random() * 0.04;
+      return { option, score };
+    })
+    .sort((a, b) => a.score - b.score)[0]?.option;
+}
+
+function buildVehicleRoutes(compiledRoads: CompiledRoad[]) {
+  const steps: RouteStep[] = [];
+  const adjacency = new Map<string, RouteStep[]>();
+
+  compiledRoads.forEach((road, roadIndex) => {
+    if (road.length < 18 || road.road.priority === "pedestrian") return;
+    for (const direction of candidateDirections(road.road)) {
+      const step = routeStepForRoad(road, roadIndex, direction);
+      steps.push(step);
+      adjacency.set(step.startKey, [...(adjacency.get(step.startKey) ?? []), step]);
+    }
+  });
+
+  const random = seeded("citywalk-continuous-route-builder-v1");
+
+  const routes = steps.map((seedStep, routeIndex): VehicleRoute => {
+    const routeSteps = [seedStep];
+    const visited = new Set([`${seedStep.roadIndex}:${seedStep.direction}`]);
+    let current = seedStep;
+    let length = seedStep.length;
+
+    for (let index = 0; index < 16 && length < 1200; index += 1) {
+      const next = chooseNextStep(current, adjacency.get(current.endKey) ?? [], compiledRoads, visited, random);
+      if (!next) break;
+      routeSteps.push(next);
+      visited.add(`${next.roadIndex}:${next.direction}`);
+      length += next.length;
+      current = next;
+      if (current.endKey === seedStep.startKey && length > 220) break;
+    }
+
+    const cumulative = [0];
+    for (const step of routeSteps) {
+      cumulative.push(cumulative[cumulative.length - 1] + step.length);
+    }
+
+    return {
+      id: `route-${routeIndex}-${seedStep.roadIndex}-${seedStep.direction}`,
+      steps: routeSteps,
+      cumulative,
+      length: cumulative[cumulative.length - 1] || seedStep.length
+    };
+  });
+
+  return routes.length > 0 ? routes : compiledRoads.map((road, index) => {
+    const step = routeStepForRoad(road, index, 1);
+    return {
+      id: `route-fallback-${road.road.id}`,
+      steps: [step],
+      cumulative: [0, step.length],
+      length: step.length
     };
   });
 }
@@ -524,28 +675,128 @@ function drawVehicle(ctx: CanvasRenderingContext2D, x: number, y: number, angle:
   ctx.restore();
 }
 
-function createVehicles(roads: CompiledRoad[], count: number) {
-  const eligible = roads.filter((road) => road.length > 18 && road.road.priority !== "pedestrian");
+function sampleRoute(route: VehicleRoute, compiledRoads: CompiledRoad[], progress: number): RouteSample {
+  const target = ((progress % 1) + 1) % 1 * route.length;
+
+  for (let index = 0; index < route.steps.length; index += 1) {
+    const startDistance = route.cumulative[index];
+    const endDistance = route.cumulative[index + 1];
+    if (target <= endDistance || index === route.steps.length - 1) {
+      const step = route.steps[index];
+      const road = compiledRoads[step.roadIndex];
+      const ratio = step.length === 0 ? 0 : (target - startDistance) / step.length;
+      const localProgress = step.direction === 1 ? ratio : 1 - ratio;
+      const sampled = sampleRoad(road, localProgress);
+
+      return {
+        road,
+        roadIndex: step.roadIndex,
+        direction: step.direction,
+        x: sampled.x,
+        y: sampled.y,
+        angle: normalizeAngle(sampled.angle + (step.direction === -1 ? Math.PI : 0))
+      };
+    }
+  }
+
+  const fallback = route.steps[0];
+  const road = compiledRoads[fallback.roadIndex];
+  const sampled = sampleRoad(road, fallback.direction === 1 ? 0 : 1);
+  return {
+    road,
+    roadIndex: fallback.roadIndex,
+    direction: fallback.direction,
+    x: sampled.x,
+    y: sampled.y,
+    angle: sampled.angle
+  };
+}
+
+function laneOffsetForVehicle(road: OsmRoad, lane: number, direction: 1 | -1) {
+  const lanes = Math.max(1, road.lanes);
+  const halfRoadWidth = Math.max(2, roadWidthMeters(road) / 2 - 1.3);
+  let offset = 0;
+
+  if (road.oneway) {
+    offset = ((lane % lanes) - (lanes - 1) / 2) * 3.25;
+  } else {
+    const lanesPerDirection = Math.max(1, Math.ceil(lanes / 2));
+    offset = direction * (1.75 + (lane % lanesPerDirection) * 3.05);
+  }
+
+  return Math.max(-halfRoadWidth, Math.min(halfRoadWidth, offset));
+}
+
+function routeMaxLanes(route: VehicleRoute, compiledRoads: CompiledRoad[]) {
+  return Math.max(1, ...route.steps.map((step) => compiledRoads[step.roadIndex].road.lanes));
+}
+
+function routeWeight(route: VehicleRoute, compiledRoads: CompiledRoad[]) {
+  const priorityFactor = Math.max(
+    ...route.steps.map((step) => {
+      const priority = compiledRoads[step.roadIndex].road.priority;
+      if (priority === "arterial") return 2.8;
+      if (priority === "collector") return 1.7;
+      return 0.85;
+    })
+  );
+
+  return Math.max(1, route.length * routeMaxLanes(route, compiledRoads) * priorityFactor);
+}
+
+function limitDistanceForSignals(
+  route: VehicleRoute,
+  compiledRoads: CompiledRoad[],
+  currentDistance: number,
+  proposedDistance: number,
+  seconds: number,
+  queueOffset: number
+) {
+  const routeLength = Math.max(1, route.length);
+  const normalizedCurrent = ((currentDistance % routeLength) + routeLength) % routeLength;
+  let limitedDistance = proposedDistance;
+
+  route.steps.forEach((step, stepIndex) => {
+    const road = compiledRoads[step.roadIndex];
+    for (const stop of road.stopControls) {
+      const stopDistanceOnRoad = stop.progress * road.length;
+      const stopDistanceOnStep = step.direction === 1 ? stopDistanceOnRoad : road.length - stopDistanceOnRoad;
+      const stopDistanceOnRoute = route.cumulative[stepIndex] + stopDistanceOnStep;
+      let gap = stopDistanceOnRoute - normalizedCurrent;
+      if (gap < 0) gap += routeLength;
+      if (gap <= 0 || gap > 54) continue;
+
+      const phase = phaseForSignal(stop.signal, seconds);
+      if (phase.color === "green") continue;
+
+      const stopTarget = currentDistance + gap - queueOffset;
+      limitedDistance = Math.min(limitedDistance, Math.max(currentDistance, stopTarget));
+    }
+  });
+
+  return limitedDistance;
+}
+
+function createVehicles(routes: VehicleRoute[], compiledRoads: CompiledRoad[], count: number) {
+  const eligible = routes.filter((route) => route.length > 18);
   const weights: number[] = [];
   let totalWeight = 0;
 
-  for (const road of eligible) {
-    const priorityFactor = road.road.priority === "arterial" ? 2.7 : road.road.priority === "collector" ? 1.6 : 0.85;
-    totalWeight += Math.max(1, road.length * Math.max(1, road.road.lanes) * priorityFactor);
+  for (const route of eligible) {
+    totalWeight += routeWeight(route, compiledRoads);
     weights.push(totalWeight);
   }
 
-  const roadIndexById = new Map(roads.map((road, index) => [road.road.id, index]));
   const random = seeded("citywalk-osm-vehicles-v2");
   const vehicles: Vehicle[] = [];
 
   for (let index = 0; index < count; index += 1) {
     const target = random() * totalWeight;
     const eligibleIndex = weights.findIndex((weight) => weight >= target);
-    const compiled = eligible[Math.max(0, eligibleIndex)];
+    const route = eligible[Math.max(0, eligibleIndex)];
     vehicles.push({
-      roadIndex: roadIndexById.get(compiled.road.id) ?? 0,
-      lane: Math.floor(random() * Math.max(1, compiled.road.lanes)),
+      routeIndex: Math.max(0, routes.findIndex((candidate) => candidate.id === route.id)),
+      lane: Math.floor(random() * routeMaxLanes(route, compiledRoads)),
       progress: random(),
       speedBias: 0.72 + random() * 0.62,
       queueOffset: 4 + random() * 18,
@@ -608,6 +859,7 @@ function TrafficMap({
   const [size, setSize] = useState<MapSize>({ width: 960, height: 620 });
   const [view, setView] = useState<ViewTransform>({ scale: 1, tx: 0, ty: 0 });
   const bounds = useMemo(() => worldBounds(compiledRoads), [compiledRoads]);
+  const vehicleRoutes = useMemo(() => buildVehicleRoutes(compiledRoads), [compiledRoads]);
   const dragRef = useRef<{ x: number; y: number; tx: number; ty: number; moved: boolean } | null>(null);
 
   useEffect(() => {
@@ -635,10 +887,13 @@ function TrafficMap({
   useEffect(() => {
     const nextView = fitView(size, bounds);
     viewRef.current = nextView;
-    vehiclesRef.current = createVehicles(compiledRoads, vehicleTarget);
     const frame = window.requestAnimationFrame(() => setView(nextView));
     return () => window.cancelAnimationFrame(frame);
-  }, [bounds, compiledRoads, size]);
+  }, [bounds, size]);
+
+  useEffect(() => {
+    vehiclesRef.current = createVehicles(vehicleRoutes, compiledRoads, vehicleTarget);
+  }, [compiledRoads, vehicleRoutes]);
 
   useEffect(() => {
     viewRef.current = view;
@@ -699,31 +954,26 @@ function TrafficMap({
 
       if (runningRef.current && !reducedMotionRef.current) {
         for (const vehicle of vehiclesRef.current) {
-          const road = compiledRoads[vehicle.roadIndex];
-          const flow = flowForRoad(road.road, flows);
+          const route = vehicleRoutes[vehicle.routeIndex];
+          if (!route) continue;
+          const sampled = sampleRoute(route, compiledRoads, vehicle.progress);
+          const flow = flowForRoad(sampled.road.road, flows);
           const speedMps = Math.max(1.3, (flow.currentSpeed / 3.6) * vehicle.speedBias);
-          const currentDistance = vehicle.progress * road.length;
+          const currentDistance = vehicle.progress * route.length;
           let nextDistance = currentDistance + speedMps * dt;
 
-          for (const stop of road.stopControls) {
-            const stopDistance = stop.progress * road.length;
-            const gap = stopDistance - currentDistance;
-            const phase = phaseForSignal(stop.signal, seconds);
-            if (gap > 0 && gap < 42 && phase.color !== "green") {
-              nextDistance = Math.min(nextDistance, Math.max(currentDistance, stopDistance - vehicle.queueOffset));
-              break;
-            }
-          }
+          nextDistance = limitDistanceForSignals(route, compiledRoads, currentDistance, nextDistance, seconds, vehicle.queueOffset);
 
-          vehicle.progress = road.length === 0 ? 0 : (nextDistance % road.length) / road.length;
+          vehicle.progress = route.length === 0 ? 0 : (nextDistance % route.length) / route.length;
         }
       }
 
       for (const vehicle of vehiclesRef.current) {
-        const road = compiledRoads[vehicle.roadIndex];
-        if (!isMainFilterMatch(road, filterRef.current)) continue;
-        const sampled = sampleRoad(road, vehicle.progress);
-        const laneOffset = (vehicle.lane - (Math.max(1, road.road.lanes) - 1) / 2) * 3.25;
+        const route = vehicleRoutes[vehicle.routeIndex];
+        if (!route) continue;
+        const sampled = sampleRoute(route, compiledRoads, vehicle.progress);
+        if (!isMainFilterMatch(sampled.road, filterRef.current)) continue;
+        const laneOffset = laneOffsetForVehicle(sampled.road.road, vehicle.lane, sampled.direction);
         const normal = sampled.angle + Math.PI / 2;
         const point = {
           x: sampled.x + Math.cos(normal) * laneOffset,
@@ -753,7 +1003,7 @@ function TrafficMap({
 
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [compiledRoads, size]);
+  }, [compiledRoads, size, vehicleRoutes]);
 
   const handleWheel = useCallback((event: WheelEvent, element: HTMLDivElement) => {
     event.preventDefault();
