@@ -31,6 +31,25 @@ type TrafficResponse = {
   flows: Flow[];
 };
 
+type ScenarioMode = "baseline" | "congestion";
+type SignalStrategy = "standard" | "green-wave";
+
+type ManagedIntersection = {
+  id: string;
+  label: string;
+  corridor: string;
+  lat: number;
+  lon: number;
+  roadNames: string[];
+  queueBaseline: number;
+  queueCongested: number;
+  queueOptimized: number;
+  delayBaseline: number;
+  delayCongested: number;
+  delayOptimized: number;
+  waveOrder: number;
+};
+
 type WorldPoint = {
   x: number;
   y: number;
@@ -132,6 +151,53 @@ const originLon = (mapBounds.minLon + mapBounds.maxLon) / 2;
 const metersPerLat = 111_320;
 const metersPerLon = 111_320 * Math.cos((originLat * Math.PI) / 180);
 const vehicleTarget = 1200;
+const managedIntersections: ManagedIntersection[] = [
+  {
+    id: "al-dorar-al-safa",
+    label: "Al Dorar / Al Safa",
+    corridor: "City Walk southwest gateway",
+    lat: 25.20782,
+    lon: 55.26533,
+    roadNames: ["Al Dorar Street", "Al Safa Street", "Happiness Street"],
+    queueBaseline: 82,
+    queueCongested: 430,
+    queueOptimized: 54,
+    delayBaseline: 18,
+    delayCongested: 92,
+    delayOptimized: 12,
+    waveOrder: 0
+  },
+  {
+    id: "al-dorar-83b",
+    label: "Al Dorar / 83b",
+    corridor: "City Walk north gate",
+    lat: 25.21104,
+    lon: 55.26758,
+    roadNames: ["Al Dorar Street", "83b Street"],
+    queueBaseline: 64,
+    queueCongested: 340,
+    queueOptimized: 42,
+    delayBaseline: 14,
+    delayCongested: 76,
+    delayOptimized: 10,
+    waveOrder: 1
+  },
+  {
+    id: "al-badaa-83b",
+    label: "Al Badaa / 83b",
+    corridor: "City Walk east gate",
+    lat: 25.20913,
+    lon: 55.27116,
+    roadNames: ["Al Badaa' Street", "83b Street"],
+    queueBaseline: 58,
+    queueCongested: 310,
+    queueOptimized: 38,
+    delayBaseline: 12,
+    delayCongested: 69,
+    delayOptimized: 9,
+    waveOrder: 2
+  }
+];
 
 function Icon({ path }: { path: string }) {
   return (
@@ -169,6 +235,38 @@ function distance(a: WorldPoint, b: WorldPoint) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+function metersBetweenLatLon(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
+  const latMeters = (a.lat - b.lat) * metersPerLat;
+  const lonMeters = (a.lon - b.lon) * metersPerLon;
+  return Math.hypot(latMeters, lonMeters);
+}
+
+function roadDistanceToIntersection(road: OsmRoad, intersection: ManagedIntersection) {
+  return Math.min(
+    ...road.coordinates.map((coordinate) =>
+      metersBetweenLatLon({ lat: coordinate[0], lon: coordinate[1] }, intersection)
+    )
+  );
+}
+
+function managedIntersectionForRoad(road: OsmRoad, radiusMeters = 190) {
+  return managedIntersections.find(
+    (intersection) =>
+      intersection.roadNames.includes(road.name) &&
+      roadDistanceToIntersection(road, intersection) < radiusMeters
+  );
+}
+
+function managedIntersectionForSignal(signal: OsmSignal) {
+  return managedIntersections.find((intersection) => metersBetweenLatLon(signal, intersection) < 65);
+}
+
+function signalForManagedIntersection(intersection: ManagedIntersection) {
+  return osmSignals
+    .map((signal) => ({ signal, distance: metersBetweenLatLon(signal, intersection) }))
+    .sort((a, b) => a.distance - b.distance)[0]?.signal;
+}
+
 function seeded(seed: string) {
   let hash = 2166136261;
   for (let index = 0; index < seed.length; index += 1) {
@@ -199,7 +297,25 @@ function angleDifference(a: number, b: number) {
   return Math.abs(normalizeAngle(a - b));
 }
 
-function phaseForSignal(signal: OsmSignal, seconds: number) {
+function phaseForSignal(signal: OsmSignal, seconds: number, scenarioMode: ScenarioMode = "baseline", signalStrategy: SignalStrategy = "standard") {
+  const managedIntersection = managedIntersectionForSignal(signal);
+
+  if (managedIntersection && scenarioMode === "congestion" && signalStrategy === "green-wave") {
+    const remaining = 44 - ((seconds + managedIntersection.waveOrder * 2) % 44);
+    return { color: "green" as const, remaining, label: "green wave" };
+  }
+
+  if (managedIntersection && scenarioMode === "congestion") {
+    const cycle = 108;
+    const clock = (seconds + managedIntersection.waveOrder * 13) % cycle;
+    const green = 16;
+    const amber = 5;
+
+    if (clock < green) return { color: "green" as const, remaining: green - clock, label: "short green" };
+    if (clock < green + amber) return { color: "amber" as const, remaining: green + amber - clock, label: "amber" };
+    return { color: "red" as const, remaining: cycle - clock, label: "held red" };
+  }
+
   const cycle = 72 + (signal.osmId % 5) * 6;
   const offset = signal.osmId % cycle;
   const clock = (seconds + offset) % cycle;
@@ -484,6 +600,46 @@ function congestionRatio(flow: Flow) {
   return 1 - Math.min(1, flow.currentSpeed / Math.max(flow.freeFlowSpeed, 1));
 }
 
+function queueForIntersection(intersection: ManagedIntersection, scenarioMode: ScenarioMode, signalStrategy: SignalStrategy) {
+  if (scenarioMode === "baseline") return intersection.queueBaseline;
+  if (signalStrategy === "green-wave") return intersection.queueOptimized;
+  return intersection.queueCongested;
+}
+
+function delayForIntersection(intersection: ManagedIntersection, scenarioMode: ScenarioMode, signalStrategy: SignalStrategy) {
+  if (scenarioMode === "baseline") return intersection.delayBaseline;
+  if (signalStrategy === "green-wave") return intersection.delayOptimized;
+  return intersection.delayCongested;
+}
+
+function scenarioFlowForRoad(road: OsmRoad, flowById: Map<string, Flow>, scenarioMode: ScenarioMode, signalStrategy: SignalStrategy): Flow {
+  const baseFlow = flowForRoad(road, flowById);
+  const managedIntersection = managedIntersectionForRoad(road);
+
+  if (!managedIntersection || scenarioMode === "baseline") return baseFlow;
+
+  const freeFlowSpeed = Math.max(baseFlow.freeFlowSpeed, road.maxspeed, 1);
+
+  if (signalStrategy === "green-wave") {
+    return {
+      ...baseFlow,
+      currentSpeed: Math.min(freeFlowSpeed, Math.max(baseFlow.currentSpeed, Math.round(freeFlowSpeed * 0.84))),
+      confidence: Math.max(baseFlow.confidence, 0.74),
+      source: "simulation"
+    };
+  }
+
+  const distancePenalty = Math.max(0.2, 1 - roadDistanceToIntersection(road, managedIntersection) / 220);
+  const targetRatio = Math.max(0.12, 0.32 - distancePenalty * 0.16);
+
+  return {
+    ...baseFlow,
+    currentSpeed: Math.max(4, Math.min(baseFlow.currentSpeed, Math.round(freeFlowSpeed * targetRatio))),
+    confidence: Math.max(baseFlow.confidence, 0.7),
+    source: "simulation"
+  };
+}
+
 function drawPath(ctx: CanvasRenderingContext2D, points: WorldPoint[], view: ViewTransform) {
   points.forEach((point, index) => {
     const screen = screenFromWorld(point, view);
@@ -750,7 +906,9 @@ function limitDistanceForSignals(
   currentDistance: number,
   proposedDistance: number,
   seconds: number,
-  queueOffset: number
+  queueOffset: number,
+  scenarioMode: ScenarioMode,
+  signalStrategy: SignalStrategy
 ) {
   const routeLength = Math.max(1, route.length);
   const normalizedCurrent = ((currentDistance % routeLength) + routeLength) % routeLength;
@@ -766,7 +924,7 @@ function limitDistanceForSignals(
       if (gap < 0) gap += routeLength;
       if (gap <= 0 || gap > 54) continue;
 
-      const phase = phaseForSignal(stop.signal, seconds);
+      const phase = phaseForSignal(stop.signal, seconds, scenarioMode, signalStrategy);
       if (phase.color === "green") continue;
 
       const stopTarget = currentDistance + gap - queueOffset;
@@ -835,6 +993,8 @@ function TrafficMap({
   filter,
   running,
   reducedMotion,
+  scenarioMode,
+  signalStrategy,
   onSelect
 }: {
   compiledRoads: CompiledRoad[];
@@ -844,6 +1004,8 @@ function TrafficMap({
   filter: MapFilter;
   running: boolean;
   reducedMotion: boolean;
+  scenarioMode: ScenarioMode;
+  signalStrategy: SignalStrategy;
   onSelect: (id: string) => void;
 }) {
   const staticCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -856,6 +1018,8 @@ function TrafficMap({
   const runningRef = useRef(running);
   const filterRef = useRef(filter);
   const reducedMotionRef = useRef(reducedMotion);
+  const scenarioModeRef = useRef(scenarioMode);
+  const signalStrategyRef = useRef(signalStrategy);
   const [size, setSize] = useState<MapSize>({ width: 960, height: 620 });
   const [view, setView] = useState<ViewTransform>({ scale: 1, tx: 0, ty: 0 });
   const bounds = useMemo(() => worldBounds(compiledRoads), [compiledRoads]);
@@ -867,7 +1031,9 @@ function TrafficMap({
     runningRef.current = running;
     filterRef.current = filter;
     reducedMotionRef.current = reducedMotion;
-  }, [filter, flowById, reducedMotion, running]);
+    scenarioModeRef.current = scenarioMode;
+    signalStrategyRef.current = signalStrategy;
+  }, [filter, flowById, reducedMotion, running, scenarioMode, signalStrategy]);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -962,7 +1128,16 @@ function TrafficMap({
           const currentDistance = vehicle.progress * route.length;
           let nextDistance = currentDistance + speedMps * dt;
 
-          nextDistance = limitDistanceForSignals(route, compiledRoads, currentDistance, nextDistance, seconds, vehicle.queueOffset);
+          nextDistance = limitDistanceForSignals(
+            route,
+            compiledRoads,
+            currentDistance,
+            nextDistance,
+            seconds,
+            vehicle.queueOffset,
+            scenarioModeRef.current,
+            signalStrategyRef.current
+          );
 
           vehicle.progress = route.length === 0 ? 0 : (nextDistance % route.length) / route.length;
         }
@@ -987,7 +1162,7 @@ function TrafficMap({
       for (const signal of osmSignals) {
         const point = screenFromWorld(worldFromLatLon(signal), currentView);
         if (point.x < -18 || point.y < -18 || point.x > size.width + 18 || point.y > size.height + 18) continue;
-        const phase = phaseForSignal(signal, seconds);
+        const phase = phaseForSignal(signal, seconds, scenarioModeRef.current, signalStrategyRef.current);
         context.beginPath();
         context.arc(point.x, point.y, currentView.scale > 0.45 ? 5.5 : 3.6, 0, Math.PI * 2);
         context.fillStyle = "#1A2332";
@@ -1113,6 +1288,8 @@ export default function CityWalkDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [reducedMotion, setReducedMotion] = useState(false);
   const [phaseClock, setPhaseClock] = useState(0);
+  const [scenarioMode, setScenarioMode] = useState<ScenarioMode>("congestion");
+  const [signalStrategy, setSignalStrategy] = useState<SignalStrategy>("standard");
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -1146,9 +1323,34 @@ export default function CityWalkDashboard() {
 
   const flows = useMemo(() => traffic?.flows ?? [], [traffic?.flows]);
   const flowById = useMemo(() => new Map(flows.map((flow) => [flow.segmentId, flow])), [flows]);
+  const effectiveFlowById = useMemo(
+    () => new Map(osmRoads.map((road) => [road.id, scenarioFlowForRoad(road, flowById, scenarioMode, signalStrategy)])),
+    [flowById, scenarioMode, signalStrategy]
+  );
   const selected = osmRoads.find((road) => road.id === selectedId) ?? osmRoads[0];
-  const selectedFlow = flowForRoad(selected, flowById);
+  const selectedFlow = flowForRoad(selected, effectiveFlowById);
   const selectedCompiled = compiledRoads.find((road) => road.road.id === selected.id);
+  const managedPlan = useMemo(
+    () =>
+      managedIntersections.map((intersection) => {
+        const roads = osmRoads.filter((road) => intersection.roadNames.includes(road.name) && roadDistanceToIntersection(road, intersection) < 220);
+        const averageSpeed = Math.round(
+          roads.reduce((sum, road) => sum + flowForRoad(road, effectiveFlowById).currentSpeed, 0) / Math.max(roads.length, 1)
+        );
+        const signal = signalForManagedIntersection(intersection);
+        const phase = signal ? phaseForSignal(signal, phaseClock, scenarioMode, signalStrategy) : { color: "red" as const, remaining: 0, label: "unmapped" };
+
+        return {
+          ...intersection,
+          roads,
+          averageSpeed,
+          phase,
+          queueMeters: queueForIntersection(intersection, scenarioMode, signalStrategy),
+          delaySeconds: delayForIntersection(intersection, scenarioMode, signalStrategy)
+        };
+      }),
+    [effectiveFlowById, phaseClock, scenarioMode, signalStrategy]
+  );
   const filteredRoadRows = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return osmRoads
@@ -1159,7 +1361,7 @@ export default function CityWalkDashboard() {
 
   const metrics = useMemo(() => {
     const modeledLanes = osmRoads.reduce((sum, road) => sum + road.lanes, 0);
-    const activeFlows = osmRoads.map((road) => flowForRoad(road, flowById));
+    const activeFlows = osmRoads.map((road) => flowForRoad(road, effectiveFlowById));
     const averageSpeed = Math.round(
       activeFlows.reduce((sum, flow) => sum + flow.currentSpeed, 0) / Math.max(activeFlows.length, 1)
     );
@@ -1173,13 +1375,35 @@ export default function CityWalkDashboard() {
       congestion,
       flowSource: traffic?.mode ?? "simulation"
     };
-  }, [flowById, traffic?.mode]);
+  }, [effectiveFlowById, traffic?.mode]);
+
+  const commandMetrics = useMemo(() => {
+    const totalQueue = managedPlan.reduce((sum, intersection) => sum + intersection.queueMeters, 0);
+    const averageDelay = Math.round(managedPlan.reduce((sum, intersection) => sum + intersection.delaySeconds, 0) / Math.max(managedPlan.length, 1));
+    const corridorSpeed = Math.round(managedPlan.reduce((sum, intersection) => sum + intersection.averageSpeed, 0) / Math.max(managedPlan.length, 1));
+    const throughput = scenarioMode === "baseline" ? 820 : signalStrategy === "green-wave" ? 1080 : 430;
+
+    return {
+      totalQueue,
+      averageDelay,
+      corridorSpeed,
+      throughput
+    };
+  }, [managedPlan, scenarioMode, signalStrategy]);
 
   function selectSearchMatch() {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return;
     const match = osmRoads.find((road) => road.name.toLowerCase().includes(term) || road.ref.toLowerCase().includes(term));
     if (match) setSelectedId(match.id);
+  }
+
+  function selectManagedIntersection(intersection: ManagedIntersection) {
+    const match = osmRoads.find((road) => intersection.roadNames.includes(road.name) && roadDistanceToIntersection(road, intersection) < 220);
+    if (match) {
+      setSelectedId(match.id);
+      setFilter("signals");
+    }
   }
 
   return (
@@ -1247,22 +1471,75 @@ export default function CityWalkDashboard() {
           </div>
         </header>
 
-        <section className="heroCard reveal" style={{ "--i": 0 } as React.CSSProperties}>
-          <div className="heroIcon">
-            <Icon path="M4 13h3l2-5 4 10 2-5h5M5 20h14M5 4h14" />
+        <section className="commandCenter reveal" style={{ "--i": 0 } as React.CSSProperties}>
+          <div className="commandOverview">
+            <div className="heroIcon">
+              <Icon path="M4 13h3l2-5 4 10 2-5h5M5 20h14M5 4h14" />
+            </div>
+            <div className="heroMetric">
+              <span>Network pressure</span>
+              <strong>{metrics.congestion}<em>%</em></strong>
+              <small>{metrics.flowSource === "tomtom" ? "TomTom live flow" : "simulated flow; API-ready"}</small>
+            </div>
+            <div className="heroMeta">
+              <span>Updated {traffic ? new Date(traffic.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "loading"}</span>
+              <span>{vehicleTarget.toLocaleString()} continuous-route vehicles; {osmSignals.length} OSM signal/crossing nodes; {osmTurnRestrictions.length} turn restrictions</span>
+            </div>
           </div>
-          <div className="heroMetric">
-            <span>Network pressure</span>
-            <strong>{metrics.congestion}<em>%</em></strong>
-            <small>{metrics.flowSource === "tomtom" ? "TomTom live flow" : "simulated flow; API-ready"}</small>
+
+          <div className="commandControls">
+            <div className="segmentedControl" role="group" aria-label="Scenario mode">
+              <button
+                className={scenarioMode === "congestion" ? "active" : ""}
+                type="button"
+                onClick={() => setScenarioMode("congestion")}
+              >
+                Congestion drill
+              </button>
+              <button
+                className={scenarioMode === "baseline" ? "active" : ""}
+                type="button"
+                onClick={() => {
+                  setScenarioMode("baseline");
+                  setSignalStrategy("standard");
+                }}
+              >
+                Baseline
+              </button>
+            </div>
+
+            <label className="switchControl">
+              <input
+                type="checkbox"
+                checked={signalStrategy === "green-wave"}
+                onChange={(event) => {
+                  setScenarioMode("congestion");
+                  setSignalStrategy(event.target.checked ? "green-wave" : "standard");
+                }}
+              />
+              <span />
+              <strong>Proactive green wave</strong>
+            </label>
+
+            <div className="runControls">
+              <button className="primaryButton" type="button" onClick={() => setRunning(true)}>Run</button>
+              <button className="secondaryButton" type="button" onClick={() => setRunning(false)}>Freeze</button>
+            </div>
           </div>
-          <div className="heroMeta">
-            <span>Updated {traffic ? new Date(traffic.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "loading"}</span>
-            <span>{vehicleTarget.toLocaleString()} vehicles; {osmSignals.length} OSM signal/crossing nodes; {osmTurnRestrictions.length} turn restrictions</span>
-          </div>
-          <div className="heroActions">
-            <button className="primaryButton" type="button" onClick={() => setRunning(true)}>Run</button>
-            <button className="secondaryButton" type="button" onClick={() => setRunning(false)}>Freeze</button>
+
+          <div className="commandMetrics" aria-label="Managed corridor metrics">
+            {[
+              ["Queue", `${commandMetrics.totalQueue} m`, "managed approaches"],
+              ["Delay", `${commandMetrics.averageDelay} s`, "average per vehicle"],
+              ["Corridor speed", `${commandMetrics.corridorSpeed} km/h`, "Al Dorar to City Walk"],
+              ["Throughput", `${commandMetrics.throughput} veh/h`, signalStrategy === "green-wave" ? "protected progression" : "current plan"]
+            ].map(([label, value, meta]) => (
+              <div className="commandMetric" key={label}>
+                <span>{label}</span>
+                <strong>{value}</strong>
+                <small>{meta}</small>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -1302,11 +1579,13 @@ export default function CityWalkDashboard() {
               compiledRoads={compiledRoads}
               pedestrianWays={pedestrianWays}
               filter={filter}
-              flowById={flowById}
+              flowById={effectiveFlowById}
               onSelect={setSelectedId}
               reducedMotion={reducedMotion}
               running={running}
+              scenarioMode={scenarioMode}
               selectedId={selectedId}
+              signalStrategy={signalStrategy}
             />
           </article>
 
@@ -1332,20 +1611,24 @@ export default function CityWalkDashboard() {
 
             <article className="detailCard darkCard reveal" id="signals" style={{ "--i": 7 } as React.CSSProperties}>
               <div className="cardHeader compact">
-                <h2>Signal Model</h2>
-                <span>{running ? "running" : "frozen"}</span>
+                <h2>Signal Strategy</h2>
+                <span>{signalStrategy === "green-wave" ? "green wave" : scenarioMode === "congestion" ? "congestion drill" : "baseline"}</span>
               </div>
-              <div className="signalList">
-                {osmSignals.slice(0, 8).map((signal) => {
-                  const phase = phaseForSignal(signal, phaseClock);
+              <div className="managedList">
+                {managedPlan.map((intersection) => {
                   return (
-                    <div className="signalRow" key={signal.id}>
-                      <span className="signalLamp" style={{ background: signalColor[phase.color] }} />
-                      <div>
-                        <strong>{signal.name}</strong>
-                        <span>OSM node {signal.osmId}; cycle generated from node id</span>
+                    <button className="managedRow" key={intersection.id} type="button" onClick={() => selectManagedIntersection(intersection)}>
+                      <span className="signalLamp" style={{ background: signalColor[intersection.phase.color] }} />
+                      <div className="managedText">
+                        <strong>{intersection.label}</strong>
+                        <span>{intersection.corridor}; {intersection.phase.label}</span>
                       </div>
-                    </div>
+                      <div className="managedStats">
+                        <span>{intersection.queueMeters} m</span>
+                        <span>{intersection.delaySeconds} s</span>
+                        <span>{intersection.averageSpeed} km/h</span>
+                      </div>
+                    </button>
                   );
                 })}
               </div>
@@ -1376,7 +1659,7 @@ export default function CityWalkDashboard() {
                 </thead>
                 <tbody>
                   {filteredRoadRows.map((road) => {
-                    const flow = flowForRoad(road, flowById);
+                    const flow = flowForRoad(road, effectiveFlowById);
                     const load = congestionRatio(flow);
                     return (
                       <tr key={road.id} onClick={() => setSelectedId(road.id)}>
@@ -1410,7 +1693,7 @@ export default function CityWalkDashboard() {
               </div>
               <div>
                 <strong>Simulation</strong>
-                <p>Vehicles follow OSM way direction, use lane offsets, slow by segment flow, and stop at nearby OSM traffic signal nodes on generated red/amber phases.</p>
+                <p>Vehicles follow stitched OSM routes across way splits, use lane offsets, slow by segment flow, and stop at nearby OSM traffic signal nodes. The congestion drill applies queues at three City Walk intersections; green wave opens consecutive managed signals.</p>
               </div>
             </div>
           </article>

@@ -325,6 +325,7 @@ h1 {
 }
 
 .heroCard,
+.commandCenter,
 .statCard,
 .mapCard,
 .detailCard,
@@ -335,6 +336,18 @@ h1 {
   border-left: 2px solid var(--accent-icon-border);
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.commandCenter {
+  display: grid;
+  gap: 18px;
+  padding: 20px 24px;
+}
+
+.commandOverview {
+  align-items: center;
+  display: flex;
+  gap: 24px;
 }
 
 .heroCard {
@@ -391,6 +404,147 @@ h1 {
 .heroActions {
   display: flex;
   gap: 8px;
+}
+
+.commandControls {
+  align-items: center;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  padding-top: 16px;
+}
+
+.segmentedControl {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  display: flex;
+  overflow: hidden;
+}
+
+.segmentedControl button {
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  height: 34px;
+  padding: 0 14px;
+}
+
+.segmentedControl button:last-child {
+  border-right: 0;
+}
+
+.segmentedControl button.active {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.switchControl {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  font-size: 13px;
+  gap: 10px;
+  min-height: 34px;
+  position: relative;
+}
+
+.switchControl input {
+  cursor: pointer;
+  height: 100%;
+  inset: 0;
+  opacity: 0;
+  position: absolute;
+  width: 100%;
+  z-index: 2;
+}
+
+.switchControl > span {
+  background: #CBD5E1;
+  border-radius: 999px;
+  display: block;
+  height: 20px;
+  position: relative;
+  transition: background-color 150ms var(--ease-out-quart);
+  width: 38px;
+}
+
+.switchControl input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.switchControl > span::after {
+  background: white;
+  border-radius: 50%;
+  content: "";
+  height: 16px;
+  left: 2px;
+  position: absolute;
+  top: 2px;
+  transition: left 150ms var(--ease-out-quart);
+  width: 16px;
+}
+
+.switchControl input:checked + span {
+  background: var(--accent-hover);
+}
+
+.switchControl input:checked + span::after {
+  left: 20px;
+}
+
+.switchControl strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.switchControl > span,
+.switchControl strong {
+  pointer-events: none;
+}
+
+.runControls {
+  display: flex;
+  gap: 8px;
+}
+
+.commandMetrics {
+  border-top: 1px solid var(--border-light);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(4, 1fr);
+  padding-top: 16px;
+}
+
+.commandMetric {
+  border-left: 1px solid var(--border-light);
+  display: grid;
+  gap: 4px;
+  padding: 2px 16px;
+}
+
+.commandMetric:first-child {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.commandMetric span,
+.commandMetric small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.commandMetric strong {
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1.1;
 }
 
 .statGrid {
@@ -732,6 +886,31 @@ h2 {
   gap: 12px;
 }
 
+.managedList {
+  display: grid;
+  gap: 10px;
+}
+
+.managedRow {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: inherit;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 14px 1fr auto;
+  padding: 10px;
+  text-align: left;
+  transition: background-color 150ms var(--ease-out-quart), border-color 150ms var(--ease-out-quart);
+  width: 100%;
+}
+
+.managedRow:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(46, 196, 160, 0.28);
+}
+
 .signalRow {
   align-items: center;
   display: grid;
@@ -751,6 +930,26 @@ h2 {
   font-size: 13px;
   font-weight: 500;
   margin-bottom: 2px;
+}
+
+.managedText strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.managedText span,
+.managedStats span {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 12px;
+}
+
+.managedStats {
+  display: grid;
+  gap: 3px;
+  justify-items: end;
+  min-width: 64px;
 }
 
 .bottomGrid {
@@ -903,6 +1102,8 @@ td:nth-child(5) {
 
   .pageHeader,
   .heroCard,
+  .commandOverview,
+  .commandControls,
   .cardHeader {
     align-items: flex-start;
     flex-direction: column;
@@ -914,6 +1115,36 @@ td:nth-child(5) {
   .headerActions select,
   .heroActions {
     width: 100%;
+  }
+
+  .segmentedControl,
+  .runControls {
+    width: 100%;
+  }
+
+  .segmentedControl button,
+  .runControls button {
+    flex: 1;
+  }
+
+  .commandMetrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .commandMetric:nth-child(odd) {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .managedRow {
+    grid-template-columns: 14px 1fr;
+  }
+
+  .managedStats {
+    grid-column: 2;
+    grid-template-columns: repeat(3, auto);
+    justify-content: start;
+    justify-items: start;
   }
 
   .statGrid {

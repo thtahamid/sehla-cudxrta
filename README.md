@@ -7,6 +7,9 @@ CityWalk Traffic Twin is a Next.js command-center prototype for traffic operatio
 - Displays the City Walk road network from a local OpenStreetMap Overpass extract.
 - Shows road classes, lane counts, turn-lane tags, one-way direction, bridges, tunnels, and signalized nodes.
 - Animates modeled vehicles along OSM way geometry with lane offsets and signal-aware stopping.
+- Stitches vehicles across adjacent OSM way segments so journeys continue through intersections.
+- Simulates a congestion drill at Al Dorar / Al Safa, Al Dorar / 83b, and Al Badaa / 83b.
+- Provides a proactive green-wave signal toggle that opens consecutive managed intersections and reduces modeled queue and delay.
 - Provides road search, network filtering, pan, zoom, and click-to-inspect behavior.
 - Falls back to deterministic simulated flow when live TomTom data is not configured.
 - Keeps source and confidence information visible for operational review.
@@ -70,6 +73,7 @@ app/
   components/CityWalkDashboard.tsx
   data/osm-citywalk.ts           Generated OSM network extract
   globals.css                    Command-center layout and map styling
+  icon.svg                       App icon
 scripts/
   build-osm-data.mjs             OSM extraction/generation script
 ```
