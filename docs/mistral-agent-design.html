@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Twin Brain - Mistral Autonomous Congestion Agent</title>
+<style>
+  :root {
+    --bg: #F5F6F8;
+    --surface: #FFFFFF;
+    --surface-raised: #F0F1F3;
+    --text: #1A1D21;
+    --text-secondary: #6B7280;
+    --muted: #9CA3AF;
+    --border: #E8EAED;
+    --accent: #2EC4A0;
+    --accent-dark: #1A8A6E;
+    --accent-light: rgba(46, 196, 160, 0.10);
+    --amber: #F59E0B;
+    --amber-light: rgba(245, 158, 11, 0.12);
+    --red: #EF4444;
+    --red-light: rgba(239, 68, 68, 0.10);
+    --ink: #0F172A;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06);
+    --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, monospace;
+    --sans: "Helvetica Neue", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 85% -5%, rgba(46,196,160,.08), transparent 60%),
+      radial-gradient(900px 500px at -5% 10%, rgba(245,158,11,.05), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    padding: 0 0 96px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- Header ---------- */
+  header.top {
+    position: sticky; top: 0; z-index: 20;
+    backdrop-filter: saturate(1.4) blur(10px);
+    background: rgba(245,246,248,.82);
+    border-bottom: 1px solid var(--border);
+  }
+  .top-inner { display: flex; align-items: center; gap: 14px; padding: 14px 0; }
+  .mark {
+    width: 40px; height: 40px; border-radius: 11px;
+    background: linear-gradient(150deg, var(--accent), var(--accent-dark));
+    display: grid; place-items: center; color: #fff; flex: none;
+    box-shadow: 0 6px 16px rgba(46,196,160,.35);
+  }
+  .mark svg { width: 22px; height: 22px; }
+  .top h1 { font-size: 15px; font-weight: 700; letter-spacing: .2px; }
+  .top p { font-size: 12.5px; color: var(--text-secondary); }
+  .top .spacer { flex: 1; }
+  .pill-live {
+    font-size: 11px; font-weight: 600; color: var(--accent-dark);
+    background: var(--accent-light); border: 1px solid rgba(46,196,160,.3);
+    padding: 5px 11px; border-radius: 999px; display: inline-flex; align-items: center; gap: 7px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 rgba(46,196,160,.7); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(46,196,160,.6)} 70%{box-shadow:0 0 0 7px rgba(46,196,160,0)} 100%{box-shadow:0 0 0 0 rgba(46,196,160,0)} }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 64px 0 40px; }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--accent-dark); }
+  .hero h2 { font-size: clamp(30px, 5vw, 46px); line-height: 1.08; letter-spacing: -.02em; margin: 14px 0 16px; max-width: 15ch; }
+  .hero h2 em { font-style: normal; color: var(--accent-dark); }
+  .hero .lede { font-size: 17px; color: var(--text-secondary); max-width: 62ch; }
+  .provenance { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+  .provenance span {
+    font-size: 12px; font-family: var(--mono); color: var(--text-secondary);
+    background: var(--surface); border: 1px solid var(--border); padding: 6px 11px; border-radius: 8px;
+  }
+  .provenance span b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Section scaffolding ---------- */
+  section { padding: 30px 0; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 22px; }
+  .sec-num { font-family: var(--mono); font-size: 12px; color: var(--accent-dark); font-weight: 600; background: var(--accent-light); border-radius: 7px; padding: 4px 9px; }
+  .sec-head h3 { font-size: 22px; letter-spacing: -.01em; }
+  .sec-head p { font-size: 13.5px; color: var(--text-secondary); margin-left: auto; max-width: 46ch; text-align: right; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+
+  /* ---------- Decisions grid ---------- */
+  .decisions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .decision { padding: 18px 20px; }
+  .decision .k { font-size: 11.5px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); font-weight: 600; }
+  .decision .v { font-size: 17px; font-weight: 650; margin-top: 6px; }
+  .decision .why { font-size: 13px; color: var(--text-secondary); margin-top: 7px; }
+  .decision .chip { display: inline-block; margin-top: 11px; font-size: 11px; font-family: var(--mono); color: var(--accent-dark); background: var(--accent-light); border-radius: 6px; padding: 3px 8px; }
+
+  /* ---------- Architecture flow ---------- */
+  .flow { padding: 26px; }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; position: relative; }
+  .lane-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: var(--muted); text-align: center; padding-bottom: 14px; }
+  .lane { padding: 0 14px; display: flex; flex-direction: column; gap: 12px; position: relative; }
+  .lane:not(:last-child)::after { content: ""; position: absolute; right: 0; top: 6px; bottom: 6px; width: 1px; background: var(--border); }
+  .node {
+    border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--surface-raised);
+    font-size: 13px; position: relative;
+  }
+  .node.client { background: #F4FBF9; border-color: rgba(46,196,160,.3); }
+  .node.server { background: #FFFDF6; border-color: rgba(245,158,11,.28); }
+  .node.mistral { background: #FBF6FF; border-color: rgba(139,92,246,.28); }
+  .node .nt { font-weight: 650; display: flex; align-items: center; gap: 7px; }
+  .node .nd { color: var(--text-secondary); font-size: 12px; margin-top: 4px; }
+  .node code { font-family: var(--mono); font-size: 11.5px; background: rgba(15,23,42,.05); padding: 1px 5px; border-radius: 5px; }
+  .tag { font-size: 10px; font-family: var(--mono); padding: 2px 6px; border-radius: 5px; font-weight: 600; }
+  .tag.c { background: var(--accent-light); color: var(--accent-dark); }
+  .tag.s { background: var(--amber-light); color: #A16207; }
+  .tag.m { background: rgba(139,92,246,.12); color: #7C3AED; }
+  .flow-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 20px; padding-top: 18px; border-top: 1px dashed var(--border); font-size: 12.5px; color: var(--text-secondary); }
+  .flow-legend b { color: var(--text); }
+  .arrow-down { text-align: center; color: var(--muted); font-size: 15px; line-height: 1; }
+
+  /* ---------- Advisory rail mock ---------- */
+  .mock-frame {
+    background: linear-gradient(180deg, #fff, #FAFBFC);
+    border: 1px solid var(--border); border-radius: 16px; padding: 22px; box-shadow: var(--shadow);
+  }
+  .advisory {
+    border: 1px solid rgba(245,158,11,.35); border-radius: 13px; overflow: hidden;
+    background: var(--surface);
+  }
+  .adv-top { display: flex; align-items: center; gap: 11px; padding: 14px 16px; background: var(--amber-light); border-bottom: 1px solid rgba(245,158,11,.25); }
+  .sev { font-size: 10.5px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; padding: 4px 9px; border-radius: 6px; }
+  .sev.act { background: var(--amber); color: #3a2a00; }
+  .adv-corridor { font-weight: 650; font-size: 15px; }
+  .adv-conf { margin-left: auto; font-size: 11.5px; font-family: var(--mono); color: var(--text-secondary); }
+  .adv-body { padding: 16px; }
+  .adv-rationale { font-size: 14.5px; font-weight: 550; }
+  .trace {
+    margin-top: 14px; border-left: 2px solid var(--accent); padding: 4px 0 4px 14px;
+    font-size: 13px; color: var(--text-secondary);
+  }
+  .trace .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .8px; font-weight: 700; color: var(--accent-dark); display: block; margin-bottom: 3px; }
+  .impact { display: flex; gap: 22px; margin-top: 16px; }
+  .impact .metric .mv { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+  .impact .metric .mv.good { color: var(--accent-dark); }
+  .impact .metric .ml { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .adv-actions { display: flex; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--border); background: var(--surface-raised); }
+  .btn { font: inherit; font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 9px 18px; cursor: default; border: 1px solid transparent; }
+  .btn.primary { background: var(--accent); color: #fff; box-shadow: 0 4px 12px rgba(46,196,160,.32); }
+  .btn.ghost { background: transparent; color: var(--text-secondary); border-color: var(--border); }
+  .rail-states { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .state { font-size: 11.5px; font-family: var(--mono); padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); }
+  .state.on { border-color: var(--accent); color: var(--accent-dark); background: var(--accent-light); }
+
+  /* ---------- Schema block ---------- */
+  pre.code {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.7; overflow-x: auto;
+    background: var(--ink); color: #E2E8F0; border-radius: 12px; padding: 20px 22px;
+  }
+  pre.code .k { color: #7DD3FC; }
+  pre.code .s { color: #86EFAC; }
+  pre.code .c { color: #64748B; font-style: italic; }
+  pre.code .e { color: #FBBF24; }
+  .schema-note { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  .schema-note .n { font-size: 13px; color: var(--text-secondary); padding: 14px 16px; }
+  .schema-note .n b { color: var(--text); }
+
+  /* ---------- Snapshot ---------- */
+  .snap { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 10px; }
+  .snap .f { padding: 13px 15px; }
+  .snap .f .fk { font-family: var(--mono); font-size: 12px; color: var(--accent-dark); }
+  .snap .f .fd { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+
+  /* ---------- Resilience list ---------- */
+  .res { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .res .r { padding: 15px 17px; display: flex; gap: 12px; align-items: flex-start; }
+  .res .r .ic { width: 26px; height: 26px; border-radius: 8px; flex: none; display: grid; place-items: center; font-size: 14px; }
+  .res .r.err .ic { background: var(--red-light); }
+  .res .r.warn .ic { background: var(--amber-light); }
+  .res .r.ok .ic { background: var(--accent-light); }
+  .res .r .rt { font-weight: 600; font-size: 13.5px; }
+  .res .r .rd { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+
+  /* ---------- Roadmap ---------- */
+  .road { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .phase { padding: 20px; position: relative; overflow: hidden; }
+  .phase.now { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
+  .phase .pn { font-family: var(--mono); font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: .5px; }
+  .phase.now .pn { color: var(--accent-dark); }
+  .phase h4 { font-size: 16px; margin: 6px 0 10px; }
+  .phase ul { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+  .phase li { font-size: 13px; color: var(--text-secondary); padding-left: 18px; position: relative; }
+  .phase li::before { content: "→"; position: absolute; left: 0; color: var(--accent); }
+  .phase .badge-now { position: absolute; top: 14px; right: 14px; font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #fff; background: var(--accent); padding: 3px 8px; border-radius: 6px; }
+
+  footer { margin-top: 40px; padding-top: 26px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); text-align: center; }
+
+  @media (max-width: 780px) {
+    .decisions, .lanes, .road, .res, .schema-note { grid-template-columns: 1fr; }
+    .lane:not(:last-child)::after { display: none; }
+    .lane { padding: 0; border-bottom: 1px dashed var(--border); padding-bottom: 14px; }
+    .sec-head p { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap top-inner">
+    <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l4-8 4 5 4-7 4 10M5 19h14"/></svg></div>
+    <div>
+      <h1>SEHLI &middot; Twin Brain</h1>
+      <p>Autonomous Congestion Agent - design spec</p>
+    </div>
+    <div class="spacer"></div>
+    <span class="pill-live"><span class="dot"></span>Powered by Mistral Agents API</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="eyebrow">Phase 1 &middot; Design</div>
+    <h2>An agent that watches the corridor and reasons about <em>why</em> it's breaking down.</h2>
+    <p class="lede">
+      A propose-and-approve autonomous agent for the City Walk traffic command center. It monitors the managed
+      corridors, detects degradation, and drafts a signal recommendation - with a reasoning trace and an expected-impact
+      estimate. The operator stays in command: nothing changes until they approve.
+    </p>
+    <div class="provenance">
+      <span>engine <b>Mistral Medium 3.5</b></span>
+      <span>fallback <b>Small 4</b></span>
+      <span>surface <b>Agents API</b></span>
+      <span>control <b>propose &rarr; approve</b></span>
+      <span>trigger <b>threshold + manual</b></span>
+    </div>
+  </div>
+
+  <!-- 1. Locked decisions -->
+  <section id="decisions">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h3>What we locked</h3>
+      <p>Four decisions that shape the whole build.</p>
+    </div>
+    <div class="decisions">
+      <div class="decision card">
+        <div class="k">Core direction</div>
+        <div class="v">Autonomous Congestion Agent</div>
+        <div class="why">The "digital twin brain" - it evaluates corridor state and surfaces advisories on its own, rather than waiting to be asked.</div>
+        <span class="chip">not a chatbot</span>
+      </div>
+      <div class="decision card">
+        <div class="k">Autonomy level</div>
+        <div class="v">Propose + approve</div>
+        <div class="why">Agent detects, reasons, and drafts. It never touches signals until the operator clicks Approve. The reasoning trace is the centerpiece.</div>
+        <span class="chip">human-in-the-loop</span>
+      </div>
+      <div class="decision card">
+        <div class="k">Trigger model</div>
+        <div class="v">Threshold + manual</div>
+        <div class="why">Fires when a corridor metric crosses a guardrail and is rising - debounced 30s - plus an "Analyze now" button. Alive, but disciplined on cost.</div>
+        <span class="chip">1 call / event</span>
+      </div>
+      <div class="decision card">
+        <div class="k">Reasoning engine</div>
+        <div class="v">Agents API + reasoning model</div>
+        <div class="why">A real, persistent Mistral Agent with a forced advisory tool and a durable conversation - so it remembers prior advisories and won't repeat itself.</div>
+        <span class="chip">Medium 3.5 &rarr; Small 4</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Architecture -->
+  <section id="architecture">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h3>Architecture</h3>
+      <p>Every Mistral call is server-side. The API key never reaches the browser.</p>
+    </div>
+    <div class="card flow">
+      <div class="lanes">
+        <div>
+          <div class="lane-title">Client &middot; CityWalkDashboard</div>
+          <div class="lane">
+            <div class="node client">
+              <div class="nt"><span class="tag c">HOOK</span> useCongestionWatcher()</div>
+              <div class="nd">Watches <code>commandMetrics</code> + <code>managedPlan</code> across ticks. Threshold + debounce, plus <b>Analyze now</b>.</div>
+            </div>
+            <div class="arrow-down">▼ snapshot</div>
+            <div class="node client">
+              <div class="nt"><span class="tag c">UI</span> &lt;AgentAdvisoryRail /&gt;</div>
+              <div class="nd">Renders the advisory across all tabs. <b>Approve</b> &rarr; <code>applyAction()</code> dispatches to existing controls.</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="lane-title">Server &middot; Next API</div>
+          <div class="lane">
+            <div class="node server">
+              <div class="nt"><span class="tag s">ROUTE</span> /api/agent/advisory</div>
+              <div class="nd">Thin HTTP layer. Validates the request, calls the lib, returns a typed advisory or error.</div>
+            </div>
+            <div class="arrow-down">▼</div>
+            <div class="node server">
+              <div class="nt"><span class="tag s">LIB</span> lib/mistral/agent.ts</div>
+              <div class="nd">The <b>only</b> file that talks to Mistral. Get-or-create agent (cached), conversation lifecycle, forced advisory tool, schema validation. SDK-or-REST isolated here.</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="lane-title">Mistral</div>
+          <div class="lane">
+            <div class="node mistral">
+              <div class="nt"><span class="tag m">AGENT</span> Congestion Agent</div>
+              <div class="nd">Created once with instructions + <code>emit_advisory</code> tool. Cached by name+version.</div>
+            </div>
+            <div class="arrow-down">▼</div>
+            <div class="node mistral">
+              <div class="nt"><span class="tag m">CONV</span> Conversation</div>
+              <div class="nd">One per browser session. Appends each snapshot &rarr; returns structured tool-call args. <b>Remembers prior advisories.</b></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flow-legend">
+        <span><b>Source of truth</b> stays on the client - it only <i>sends</i> a compact snapshot and <i>renders</i> the advisory.</span>
+        <span><b>No business logic</b> moves server-side.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Advisory contract -->
+  <section id="contract">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h3>The advisory contract</h3>
+      <p>The agent is forced to call one tool. Its arguments <i>are</i> the advisory - always structured, always validated.</p>
+    </div>
+    <pre class="code"><span class="c">// emit_advisory - the single forced function tool</span>
+{
+  <span class="k">severity</span>: <span class="e">"info"</span> | <span class="e">"watch"</span> | <span class="e">"act"</span>,
+  <span class="k">corridor</span>: <span class="s">string</span>,            <span class="c">// e.g. "Al Badaa / 83b"</span>
+  <span class="k">cause</span>: <span class="s">string</span>,               <span class="c">// the reasoning: WHY it is degrading</span>
+  <span class="k">recommendation</span>: {
+    <span class="k">action</span>: <span class="e">"set_signal_strategy"</span> | <span class="e">"set_scenario"</span> | <span class="e">"focus_intersection"</span> | <span class="e">"monitor"</span>,
+    <span class="k">params</span>: { strategy?, scenario?, intersectionId? }
+  },
+  <span class="k">expectedImpact</span>: { <span class="k">queueDeltaPct</span>: <span class="s">number</span>, <span class="k">delayDeltaSec</span>: <span class="s">number</span> },
+  <span class="k">confidence</span>: <span class="s">number</span>,          <span class="c">// 0..1</span>
+  <span class="k">rationale</span>: <span class="s">string</span>            <span class="c">// 1-2 sentence operator-facing summary</span>
+}</pre>
+    <div class="schema-note">
+      <div class="n card"><b>Closed action enum.</b> Every action maps to something the app can already execute, so Approve is a safe, deterministic dispatch - never free-form control.</div>
+      <div class="n card"><b><code>monitor</code> = no-op.</b> When the agent decides not to act, it still returns a structured advisory explaining why it is holding.</div>
+    </div>
+  </section>
+
+  <!-- 4. Snapshot -->
+  <section id="snapshot">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h3>The snapshot it reasons over</h3>
+      <p>Compact, not the whole map - and every field already exists in the dashboard.</p>
+    </div>
+    <div class="snap">
+      <div class="f card"><div class="fk">scenarioMode</div><div class="fd">baseline | congestion</div></div>
+      <div class="f card"><div class="fk">signalStrategy</div><div class="fd">standard | green-wave</div></div>
+      <div class="f card"><div class="fk">commandMetrics</div><div class="fd">queue, delay, speed, throughput</div></div>
+      <div class="f card"><div class="fk">managedPlan[]</div><div class="fd">per intersection: label, corridor</div></div>
+      <div class="f card"><div class="fk">&nbsp;&nbsp;&middot; averageSpeed</div><div class="fd">km/h from live flow</div></div>
+      <div class="f card"><div class="fk">&nbsp;&nbsp;&middot; queueMeters</div><div class="fd">modeled queue length</div></div>
+      <div class="f card"><div class="fk">&nbsp;&nbsp;&middot; delaySeconds</div><div class="fd">modeled delay</div></div>
+      <div class="f card"><div class="fk">&nbsp;&nbsp;&middot; phase</div><div class="fd">signal color + remaining</div></div>
+    </div>
+  </section>
+
+  <!-- 5. UX / advisory rail mock -->
+  <section id="ux">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h3>The advisory rail</h3>
+      <p>A persistent card in the command center - visible across Map, Signals, and Data.</p>
+    </div>
+    <div class="mock-frame">
+      <div class="advisory">
+        <div class="adv-top">
+          <span class="sev act">Act</span>
+          <span class="adv-corridor">Al Badaa / 83b</span>
+          <span class="adv-conf">confidence 0.82</span>
+        </div>
+        <div class="adv-body">
+          <div class="adv-rationale">Corridor is degrading under fixed-time signals - a green-wave would clear the building queue before it spills into Al Safa.</div>
+          <div class="trace">
+            <span class="lbl">Reasoning trace &middot; cause</span>
+            Arterial spillback from Al Dorar is meeting fixed-time phasing at 83b. Queue has risen for 2 consecutive ticks (168m &rarr; 214m) while corridor speed fell to 19 km/h. Managed intersections 1&ndash;4 are not yet coordinated.
+          </div>
+          <div class="impact">
+            <div class="metric"><div class="mv good">-55%</div><div class="ml">queue</div></div>
+            <div class="metric"><div class="mv good">-40s</div><div class="ml">delay</div></div>
+            <div class="metric"><div class="mv">green-wave</div><div class="ml">action &middot; orders 1&rarr;4</div></div>
+          </div>
+        </div>
+        <div class="adv-actions">
+          <button class="btn primary">Approve &amp; apply</button>
+          <button class="btn ghost">Dismiss</button>
+        </div>
+      </div>
+      <div class="rail-states">
+        <span class="state">idle</span>
+        <span class="state">analyzing…</span>
+        <span class="state on">advisory</span>
+        <span class="state">applied &middot; before/after</span>
+        <span class="state">dismissed &middot; remembered</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Resilience -->
+  <section id="resilience">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h3>Resilience</h3>
+      <p>Mirrors the existing TomTom fallback pattern - the dashboard is never blocked by AI.</p>
+    </div>
+    <div class="res">
+      <div class="r ok card"><div class="ic">○</div><div><div class="rt">No MISTRAL_API_KEY</div><div class="rd">Route returns <code>{ mode: "disabled" }</code>. Rail shows a quiet "copilot not configured" hint. App fully usable.</div></div></div>
+      <div class="r warn card"><div class="ic">⏱</div><div><div class="rt">Timeout / API error (8s)</div><div class="rd">Typed error. Rail shows "couldn't analyze, retry". Never crashes the dashboard.</div></div></div>
+      <div class="r warn card"><div class="ic">⟳</div><div><div class="rt">Schema-invalid tool args</div><div class="rd">One automatic retry, then a graceful fail state.</div></div></div>
+      <div class="r err card"><div class="ic">↧</div><div><div class="rt">429 / 5xx on primary model</div><div class="rd">Falls back Medium 3.5 &rarr; Small 4 before surfacing an error.</div></div></div>
+    </div>
+  </section>
+
+  <!-- 7. Roadmap -->
+  <section id="roadmap">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <h3>Roadmap</h3>
+      <p>This design is Phase 1. Later phases reuse the same <code>lib/mistral/agent.ts</code>.</p>
+    </div>
+    <div class="road">
+      <div class="phase now card">
+        <span class="badge-now">Building</span>
+        <div class="pn">PHASE 1</div>
+        <h4>Autonomous agent</h4>
+        <ul>
+          <li>Agents API + Medium 3.5</li>
+          <li>Forced advisory tool</li>
+          <li>Watcher + advisory rail</li>
+          <li>Propose &rarr; approve dispatch</li>
+        </ul>
+      </div>
+      <div class="phase card">
+        <div class="pn">PHASE 2</div>
+        <h4>Context + handoffs</h4>
+        <ul>
+          <li><code>web_search</code> connector</li>
+          <li>Events / weather / RTA</li>
+          <li>Triage &rarr; signal-planner handoff</li>
+          <li>Multi-agent orchestration</li>
+        </ul>
+      </div>
+      <div class="phase card">
+        <div class="pn">PHASE 3</div>
+        <h4>Multimodal</h4>
+        <ul>
+          <li>Voxtral voice commands</li>
+          <li>Pixtral junction vision</li>
+          <li>OCR 4 for RTA bulletins</li>
+          <li>Hands-free operations</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    SEHLI &middot; City Walk Traffic Twin &nbsp;|&nbsp; Mistral integration design, Phase 1 &nbsp;|&nbsp; propose-and-approve &middot; server-side keys &middot; graceful degradation
+  </footer>
+
+</div>
+</body>
+</html>
