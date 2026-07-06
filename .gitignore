@@ -11,3 +11,7 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 docs/CUD_RTA_Traffic_Dataset/
+
+# OS + build artifacts
+.DS_Store
+tsconfig.tsbuildinfo
