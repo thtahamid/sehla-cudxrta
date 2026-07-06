@@ -269,6 +269,27 @@ h1.slide-title .accent.m{ color:var(--magenta); }
 .stack .layer.brain{ border-color:var(--cyan); }
 .stack .layer.safetyL{ border-color:var(--magenta); }
 
+/* ---- demo transition cue (centered "it's demo time") ---- */
+.demo-cta{ align-items:center; text-align:center; justify-content:center; gap:clamp(10px,2vh,20px); }
+.demo-cta .slide-title{ max-width:none; margin:0; }
+.demo-cta .demo-lede{ max-width:760px; }
+.demo-cta .demo-steps{ margin-top:clamp(10px,2vh,22px); width:100%; max-width:1100px; }
+.demo-play{
+  width:clamp(64px,9vw,96px); height:clamp(64px,9vw,96px); border-radius:50%;
+  background:var(--cyan); color:#fff; display:flex; align-items:center; justify-content:center;
+  font-size:clamp(22px,3vw,34px); padding-left:6px; margin:0 auto;
+  box-shadow:0 14px 34px rgba(216,31,38,.32); position:relative;
+}
+.demo-play::before{
+  content:""; position:absolute; inset:0; border-radius:50%;
+  border:2px solid var(--cyan); animation:demopulse 2.2s ease-out infinite;
+}
+@keyframes demopulse{
+  0%{ transform:scale(1); opacity:.6; }
+  100%{ transform:scale(1.7); opacity:0; }
+}
+@media (prefers-reduced-motion:reduce){ .demo-play::before{ animation:none; opacity:0; } }
+
 /* ---- demo mockup (light dashboard screenshot) ---- */
 .mockup{ background:#fff; border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:0 18px 46px rgba(20,40,80,.16); }
 .mockup .topbar{ background:#f1f4f9; padding:8px 14px; display:flex; align-items:center; gap:7px; border-bottom:1px solid var(--border-soft); }
@@ -376,9 +397,9 @@ h1.slide-title .accent.m{ color:var(--magenta); }
   <section class="slide title-slide" data-title="Title">
     <div class="slide-content title-layout">
       <div class="title-copy">
-        <div class="title-pill reveal" style="--d:0">RTA <b>×</b> CUD 4IR Mobility Student Challenge — Day 4 Finals</div>
+        <div class="title-pill reveal" style="--d:0">RTA <b>&times;</b> CUD 4IR Mobility Student Challenge &mdash; Day 4 Finals</div>
         <h1 class="wordmark reveal" style="--d:1">SEHLA</h1>
-        <div class="tagline reveal" style="--d:2">An AI-powered traffic digital twin for Dubai — signals that react, fleets that cooperate.</div>
+        <div class="tagline reveal" style="--d:2">An AI-powered traffic digital twin for Dubai &mdash; signals that react, continuously optimized.</div>
         <div class="title-meta reveal" style="--d:3">
           <div>Team<b>SEHLA</b></div>
           <div>Date<b>6 July 2026</b></div>
@@ -397,30 +418,16 @@ h1.slide-title .accent.m{ color:var(--magenta); }
       <p class="eyebrow reveal" style="--d:0">The Problem</p>
       <h1 class="slide-title reveal" style="--d:1">Dubai's signals are <span class="accent">fixed</span>. Dubai's traffic isn't.</h1>
       <div class="stat-grid reveal" style="--d:2">
-        <div class="stat-card"><div class="num">72 hrs</div><div class="lbl">lost per motorist to traffic jams in 2025 — up 6.2 hrs on 2024</div><div class="src">TomTom Traffic Index, via Khaleej Times, Jan 2026</div></div>
+        <div class="stat-card"><div class="num">72 hrs</div><div class="lbl">lost per motorist to traffic jams in 2025 &mdash; up 6.2 hrs on 2024</div><div class="src">TomTom Traffic Index, via Khaleej Times, Jan 2026</div></div>
         <div class="stat-card"><div class="num">26.3 km/h</div><div class="lbl">average rush-hour speed in 2025, dropping to 22.6 km/h in the evening peak</div><div class="src">TomTom Traffic Index, 2025</div></div>
         <div class="stat-card"><div class="num">4.65M</div><div class="lbl">active registered vehicles by Q3 2025, as population passed 4 million</div><div class="src">Salik data, via Khaleej Times, Jan 2026</div></div>
-        <div class="stat-card"><div class="num">45–72 hrs</div><div class="lbl">2025 congestion estimates (INRIX vs TomTom) — different methods, same worsening trend</div><div class="src">INRIX Global Traffic Scorecard / TomTom, 2025</div></div>
+        <div class="stat-card"><div class="num">Dh175B</div><div class="lbl">invested by RTA over 20 years &mdash; yet 2025 delay figures still rose year-on-year</div><div class="src">Gulf News / McKinsey, Oct 2025</div></div>
       </div>
-      <div class="callout reveal" style="--d:3">The core issue: <b>fixed-schedule signals</b> can't react to sudden volume spikes, and <b>commercial fleets move independently</b> of one another — both converge on chokepoints like <b>Business Bay Crossing</b> during the 7–9am and 5–7pm peaks, which RTA itself is actively re-engineering this summer.</div>
+      <div class="callout reveal" style="--d:3"><b>Fixed-schedule signals</b> can't react to sudden volume spikes &mdash; queues converge on chokepoints like <b>Business Bay Crossing</b> during the 7&ndash;9am and 5&ndash;7pm peaks, which RTA is actively re-engineering this summer. Infrastructure alone isn't closing the gap fast enough.</div>
     </div>
   </section>
 
-  <!-- 3: WHY NOW -->
-  <section class="slide" data-title="Why This Challenge, Why Now">
-    <div class="slide-content body-block">
-      <p class="eyebrow reveal" style="--d:0">Why This Challenge, Why Now</p>
-      <h1 class="slide-title reveal" style="--d:1">RTA is already spending big. We add the <span class="accent">software layer</span>.</h1>
-      <div class="cols3 reveal" style="--d:2">
-        <div class="card"><h3>RTA invests, and it works</h3><p>McKinsey's RTA 20th-anniversary study found <b style="color:var(--amber)">Dh319B</b> in fuel &amp; time savings and <b style="color:var(--amber)">Dh156B</b> GDP contribution from Dh175B invested over 20 years.</p><p class="cite">Gulf News, "RTA turns 20," Oct 2025</p></div>
-        <div class="card"><h3>Congestion is still rising</h3><p>Even with that investment, 2025 delay figures rose year-on-year as population and vehicle counts grew — infrastructure alone isn't closing the gap fast enough.</p><p class="cite">TomTom / INRIX, 2025</p></div>
-        <div class="card"><h3>RTA already proves the model</h3><p>RTA's own July 2026 Emirates Road expansion is projected to cut peak-hour journey time by <b style="color:var(--amber)">25%</b> — a real precedent for the scale of impact software-driven changes can deliver.</p><p class="cite">Khaleej Times, 30 Jun 2026</p></div>
-      </div>
-      <div class="callout reveal" style="--d:3">RTA's 28-location summer programme was itself selected using <b>historical traffic data from intelligent transport systems and cameras</b> — the exact data streams Sehla runs on.</div>
-    </div>
-  </section>
-
-  <!-- 4: SOLUTION -->
+  <!-- 3: SOLUTION -->
   <section class="slide" data-title="Our Solution">
     <!-- ============================================================
          TRANSPORT NETWORK — arterial roads with animated traffic flow,
@@ -429,26 +436,22 @@ h1.slide-title .accent.m{ color:var(--magenta); }
          ============================================================ -->
     <div class="illus illus-network illus-roads" aria-hidden="true">
       <svg viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-        <!-- road base beds -->
         <g id="road-beds" stroke="#123e74" stroke-opacity=".55" stroke-width="9" fill="none" stroke-linecap="round">
           <line x1="-20" y1="312" x2="1020" y2="312"/>
           <line x1="500" y1="-20" x2="500" y2="640"/>
           <line x1="-20" y1="120" x2="700" y2="620"/>
           <path d="M-20,470 C260,470 300,180 560,180 C820,180 900,470 1020,470"/>
         </g>
-        <!-- flowing traffic (animated dashes) -->
         <g id="traffic-flow" fill="none" stroke-linecap="round">
           <line class="flowline"    x1="-20" y1="312" x2="1020" y2="312" stroke="#d81f26" stroke-width="3"/>
           <line class="flowline f2" x1="500" y1="-20" x2="500" y2="640" stroke="#3ddc97" stroke-width="3"/>
           <line class="flowline f3" x1="-20" y1="120" x2="700" y2="620" stroke="#ffc857" stroke-width="3"/>
         </g>
-        <!-- Dubai Metro viaduct -->
         <g id="metro-line" fill="none" stroke-linecap="round">
           <path d="M-20,470 C260,470 300,180 560,180 C820,180 900,470 1020,470" stroke="#ff3d9a" stroke-opacity=".5" stroke-width="5"/>
           <path class="flowline metro" d="M-20,470 C260,470 300,180 560,180 C820,180 900,470 1020,470" stroke="#ff3d9a" stroke-width="5"/>
           <g fill="#ff3d9a"><circle cx="300" cy="300" r="6"/><circle cx="560" cy="180" r="6"/><circle cx="820" cy="300" r="6"/></g>
         </g>
-        <!-- signalised interchanges -->
         <g id="interchanges">
           <g transform="translate(500 312)">
             <circle r="20" fill="none" stroke="#123e74" stroke-opacity=".5" stroke-width="2"/>
@@ -461,27 +464,27 @@ h1.slide-title .accent.m{ color:var(--magenta); }
     </div>
     <div class="slide-content body-block">
       <p class="eyebrow reveal" style="--d:0">Our Solution</p>
-      <h1 class="slide-title reveal" style="--d:1">Sehla: a software-only digital twin, <span class="accent m">three capabilities, one safety net</span></h1>
+      <h1 class="slide-title reveal" style="--d:1">Sehla: a software-only digital twin &mdash; <span class="accent m">AI signals, continuously optimized</span></h1>
       <div class="cols3 reveal" style="--d:2">
-        <div class="card"><h3>Adaptive Signal Control</h3><p>Mistral AI reads live queue length and volume, and retimes signal phases as congestion builds — within RTA's hard constraints.</p></div>
-        <div class="card"><h3 class="m">Fleet Routing via VCG Auction</h3><p>Commercial fleets bid for peak-hour corridor slots. Winners pay for access; non-winners shift off-peak for a Salik toll credit.</p></div>
-        <div class="card"><h3>Event-Aware Pre-Optimization</h3><p>A Mistral agent watches Dubai's live events calendar and pre-times signals before a crowd surge ever forms.</p></div>
+        <div class="card"><h3>Adaptive Signal Control</h3><p>Mistral AI reads live queue length and volume and retimes signal phases as congestion builds &mdash; within RTA's hard constraints.</p></div>
+        <div class="card"><h3 class="m">SUMO RL Optimization</h3><p>A reinforcement-learning agent trained in a SUMO traffic simulation keeps improving the timing policy &mdash; and stress-tests any scenario safely, offline.</p></div>
+        <div class="card"><h3>Deterministic Safety Net</h3><p>Every AI decision is validated against hard-coded RTA rules before it can touch a real signal.</p></div>
       </div>
-      <div class="callout reveal" style="--d:3">Every AI decision passes through a <b>hard-coded, deterministic safety filter</b> before it touches a signal or a route. <b>No new sensors. No new infrastructure.</b> It runs entirely on data RTA already collects.</div>
+      <div class="callout reveal" style="--d:3">Runs entirely on data RTA already collects &mdash; <b>no new sensors, no new infrastructure.</b> It also extends to <b>fleet routing</b> and <b>event-aware timing</b>.</div>
     </div>
   </section>
 
-  <!-- 5: DIAGRAM SIGNAL -->
-  <section class="slide" data-title="How It Works — Adaptive Signal Control">
+  <!-- 4: HOW IT WORKS — ADAPTIVE SIGNAL CONTROL -->
+  <section class="slide" data-title="How It Works">
     <div class="slide-content body-block">
-      <p class="eyebrow reveal" style="--d:0">How It Works — Engine 1</p>
+      <p class="eyebrow reveal" style="--d:0">How It Works</p>
       <h1 class="slide-title reveal" style="--d:1">Adaptive Signal Control, <span class="accent">step by step</span></h1>
       <div class="flow reveal" style="--d:2">
         <div class="step"><div class="tag">Input</div><h4>Live Queue &amp; Volume</h4><p>Streamed frame-by-frame from historical RTA sandbox datasets.</p></div>
         <div class="arrow">&#8594;</div>
         <div class="step"><div class="tag">Reasoning</div><h4>Mistral AI</h4><p>Receives the JSON traffic state and proposes a signal adjustment.</p></div>
         <div class="arrow">&#8594;</div>
-        <div class="step safety"><div class="tag">Safety Filter</div><h4>Deterministic Rules</h4><p>Checks RTA constraints — no conflicting greens, min/max phase lengths.</p></div>
+        <div class="step safety"><div class="tag">Safety Filter</div><h4>Deterministic Rules</h4><p>Checks RTA constraints &mdash; no conflicting greens, min/max phase lengths.</p></div>
         <div class="arrow">&#8594;</div>
         <div class="step"><div class="tag">Output</div><h4>Approved Timing</h4><p>Exact, seconds-adjusted timing applied and shown live on the dashboard.</p></div>
       </div>
@@ -489,180 +492,71 @@ h1.slide-title .accent.m{ color:var(--magenta); }
     </div>
   </section>
 
-  <!-- 6: DIAGRAM AUCTION -->
-  <section class="slide" data-title="How It Works — Fleet Routing">
-    <div class="slide-content body-block">
-      <p class="eyebrow reveal" style="--d:0">How It Works — Engine 2</p>
-      <h1 class="slide-title reveal" style="--d:1">Fleet Routing via <span class="accent m">VCG Auction</span></h1>
-      <div class="flow reveal" style="--d:2">
-        <div class="step"><div class="tag">Bid</div><h4>Fleets Submit Bids</h4><p>Bids for premium peak-hour transit slots through specific corridors.</p></div>
-        <div class="arrow">&#8594;</div>
-        <div class="step"><div class="tag">Allocation</div><h4>Mistral AI Scores</h4><p>Weighs bid value against live corridor capacity.</p></div>
-        <div class="arrow">&#8594;</div>
-        <div class="step safety"><div class="tag">Safety Filter</div><h4>Capacity Check</h4><p>Confirms the allocation doesn't exceed corridor limits.</p></div>
-        <div class="arrow">&#8594;</div>
-        <div class="split-col">
-          <div class="step win"><div class="tag">Winners</div><p style="color:var(--text)">Highest-value bids get the slot they asked for.</p></div>
-          <div class="step lose"><div class="tag">Non-Winners</div><p style="color:var(--text)">Rerouted off-peak + issued a Salik "Congestion Credit."</p></div>
-        </div>
-      </div>
-      <div class="callout reveal" style="--d:3">A new, ongoing <b>revenue stream</b> for RTA — while smaller fleets are compensated, not punished.</div>
-    </div>
-  </section>
-
-  <!-- 6b: DIAGRAM EVENT-AWARE -->
-  <section class="slide" data-title="Event-Aware Signal Intelligence">
-    <div class="slide-content body-block">
-      <p class="eyebrow reveal" style="--d:0">How It Works — Beyond Reactive</p>
-      <h1 class="slide-title reveal" style="--d:1">An agent that watches Dubai's <span class="accent">events calendar</span></h1>
-      <div class="flow reveal" style="--d:2">
-        <div class="step"><div class="tag">Watch</div><h4>Live Events Calendar</h4><p>Venue schedules and expected attendance — concerts, matches, exhibitions.</p></div>
-        <div class="arrow">&#8594;</div>
-        <div class="step"><div class="tag">Reasoning</div><h4>Mistral Agent</h4><p>Continuously matches upcoming events to the corridors and crossings that feed them.</p></div>
-        <div class="arrow">&#8594;</div>
-        <div class="step safety"><div class="tag">Safety Filter</div><h4>Same Deterministic Rules</h4><p>Pre-adjustment is validated against RTA constraints before anything changes.</p></div>
-        <div class="arrow">&#8594;</div>
-        <div class="step"><div class="tag">Output</div><h4>Pre-Adjusted Timing</h4><p>Signals and pedestrian phases re-timed ahead of the surge, not after it.</p></div>
-      </div>
-      <div class="callout reveal" style="--d:3">Example: a sold-out show at <b>Coca-Cola Arena</b> — Sehla pre-extends pedestrian crossing phases and retimes the approach corridors before doors open, so cars converging on the venue and people crossing nearby intersections both flow smoothly instead of backing up once the crowd arrives.</div>
-    </div>
-  </section>
-
-  <!-- 6c: POSITIONING VS FUSION -->
-  <section class="slide" data-title="Positioning vs RTA's Fusion">
-    <div class="slide-content body-block">
-      <p class="eyebrow reveal" style="--d:0">We Did Our Homework</p>
-      <h1 class="slide-title reveal" style="--d:1">RTA already has <span class="accent">Fusion</span>. Here's where Sehla fits.</h1>
-      <div class="cols2 reveal" style="--d:2">
-        <div class="card"><h3>RTA's Fusion (UTC-UX Fusion) — live, rolling out now</h3><ul><li>AI + digital-twin signal control, already deployed at live intersections</li><li><b>16–37%</b> efficiency gains in Phase 1; targeting <b>~300 intersections by Q3 2026</b></li><li>Simulates changes in a digital twin before applying them</li><li>Built for future V2X (vehicle-to-signal) communication</li></ul></div>
-        <div class="card"><h3 class="m">The gap Sehla sits in</h3><ul><li>Fusion optimizes signal timing from live traffic data — it doesn't touch fleet demand, truck permits, or tolling</li><li>It reacts to congestion as it forms — it isn't wired to Dubai's events calendar to anticipate demand before it arrives</li><li>Sehla adds the VCG fleet auction and event-aware pre-optimization layers on top</li></ul></div>
-      </div>
-      <div class="callout reveal" style="--d:3">Sehla isn't a rival to Fusion — it's designed to <b>sit alongside it</b>, adding the fleet-demand and event-anticipation layers Fusion doesn't cover.</div>
-      <p class="cite reveal" style="--d:3">Government of Dubai Media Office, "RTA's Traffic Signal Upgrade Boosts Flow 37%," 4 Sep 2025.</p>
-    </div>
-  </section>
-
-  <!-- 7: ARCHITECTURE -->
-  <section class="slide" data-title="System Architecture">
-    <div class="illus illus-network" aria-hidden="true">
-      <svg viewBox="0 0 900 500" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-        <g stroke="#123e74" stroke-width="2" fill="none">
-          <line x1="0" y1="90" x2="900" y2="90"/>
-          <line x1="0" y1="230" x2="900" y2="230"/>
-          <line x1="0" y1="400" x2="900" y2="400"/>
-          <line x1="140" y1="0" x2="140" y2="500"/>
-          <line x1="380" y1="0" x2="380" y2="500"/>
-          <line x1="620" y1="0" x2="620" y2="500"/>
-          <line x1="800" y1="0" x2="800" y2="500"/>
-          <line x1="0" y1="40" x2="300" y2="500"/>
-          <line x1="600" y1="0" x2="900" y2="330"/>
-        </g>
-        <g fill="#123e74">
-          <circle cx="140" cy="90" r="9"/>
-          <circle cx="380" cy="90" r="6"/>
-          <circle cx="620" cy="230" r="9"/>
-          <circle cx="800" cy="400" r="6"/>
-        </g>
-        <g fill="#ff3d9a">
-          <circle cx="140" cy="400" r="7"/>
-          <circle cx="620" cy="90" r="7"/>
-        </g>
-        <g fill="#ffc857">
-          <circle cx="380" cy="230" r="10"/>
-          <circle cx="800" cy="90" r="6"/>
-        </g>
-        <g fill="#3ddc97">
-          <circle cx="140" cy="230" r="6"/>
-          <circle cx="380" cy="400" r="6"/>
-          <circle cx="620" cy="400" r="6"/>
-        </g>
-      </svg>
-    </div>
-    <div class="slide-content body-block">
-      <p class="eyebrow reveal" style="--d:0">Under The Hood</p>
-      <h1 class="slide-title reveal" style="--d:1">System Architecture — <span class="accent">four layers</span></h1>
-      <div class="stack reveal" style="--d:2">
-        <div class="layer"><div><div class="role">Frontend</div><div class="tech">Next.js + OpenStreetMap / Cesium</div></div><div class="desc">Clean, RTA-branded dashboard — Before/After map toggle and Mistral Reasoning Panel.</div></div>
-        <div class="layer brain"><div><div class="role">The Brain</div><div class="tech">Mistral AI (mistral-large-latest)</div></div><div class="desc">Reasoning engine — outputs signal timing and fleet routing decisions. Real work, not decoration.</div></div>
-        <div class="layer safetyL"><div><div class="role">The Safety Net</div><div class="tech">Deterministic Python Filter</div></div><div class="desc">Validates every AI suggestion against hard-coded RTA rules before it is applied.</div></div>
-        <div class="layer"><div><div class="role">Backend</div><div class="tech">FastAPI (Python)</div></div><div class="desc">Simulation engine — reads historical RTA datasets and live events-calendar feeds frame-by-frame.</div></div>
-      </div>
-      <p class="cite reveal" style="--d:3">Sources of truth: VCG Auction Mechanism — Stanford Auction Theory · Mistral API Docs · Next.js · FastAPI.</p>
-    </div>
-  </section>
-
-  <!-- 8: DEMO -->
+  <!-- 5: DEMO — transition cue to the live dashboard -->
   <section class="slide" data-title="Live Demo">
-    <div class="slide-content body-block">
+    <div class="slide-content demo-cta">
       <p class="eyebrow reveal" style="--d:0">Live Demo</p>
-      <h1 class="slide-title reveal" style="--d:1">See it <span class="accent">reason</span>, not just react</h1>
-      <div class="mockup reveal" style="--d:2">
-        <div class="topbar"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div><div class="title">sehla-dashboard — Business Bay Crossing (Before / After)</div></div>
-        <div class="body">
-          <div class="map"><div class="toggle">&#9679; Before | After</div><div class="pin" style="top:45%;left:35%"></div><div class="pin" style="top:60%;left:58%"></div><div class="pin" style="top:30%;left:68%"></div></div>
-          <div class="panel">
-            <div class="h">Mistral Reasoning Panel</div>
-            <div class="bubble"><b>Signal NB-04:</b> +8s green — queue at 22 vehicles, incident-free.</div>
-            <div class="bubble"><b>Corridor 3:</b> slot allocated to Fleet #112; Fleet #087 rerouted, credit issued.</div>
-            <div class="bubble"><b>Event mode:</b> Coca-Cola Arena show, 8pm — pre-extending pedestrian phases from 6:30pm.</div>
-          </div>
-        </div>
-      </div>
+      <div class="demo-play reveal" style="--d:1" aria-hidden="true">&#9654;</div>
+      <h1 class="slide-title reveal" style="--d:1">It's <span class="accent">demo time</span></h1>
+      <p class="subtle demo-lede reveal" style="--d:2">Let's switch to the live Sehla dashboard &mdash; Business Bay Crossing, before vs after, narrated in real time by the Mistral Reasoning Panel.</p>
       <div class="demo-steps reveal" style="--d:3">
         <div class="st"><div class="n">01</div><p>Replay historical rush-hour data for Business Bay Crossing</p></div>
         <div class="st"><div class="n">02</div><p>Show baseline congestion under today's fixed timing</p></div>
-        <div class="st"><div class="n">03</div><p>Toggle to Sehla-optimized state — watch queues clear</p></div>
+        <div class="st"><div class="n">03</div><p>Toggle to Sehla-optimized state &mdash; watch queues clear</p></div>
         <div class="st"><div class="n">04</div><p>Reasoning Panel narrates every decision in plain English</p></div>
       </div>
     </div>
   </section>
 
-  <!-- 9: BENCHMARKS -->
-  <section class="slide" data-title="Global Benchmarks">
+  <!-- 6: SUMO RL — CONTINUOUS OPTIMIZATION (complements the demo) -->
+  <section class="slide" data-title="SUMO RL Optimization">
     <div class="slide-content body-block">
-      <p class="eyebrow reveal" style="--d:0">Alternative Approaches — What Works Elsewhere</p>
-      <h1 class="slide-title reveal" style="--d:1">Two proven mechanisms, <span class="accent">combined — without the capex</span></h1>
+      <p class="eyebrow reveal" style="--d:0">Beyond the Demo &mdash; Our Best Complement</p>
+      <h1 class="slide-title reveal" style="--d:1">SUMO reinforcement learning that keeps <span class="accent m">getting better</span></h1>
+      <div class="flow reveal" style="--d:2">
+        <div class="step"><div class="tag">Simulate</div><h4>SUMO Microsimulation</h4><p>A calibrated digital twin of the junction replays real RTA data, modelling every vehicle.</p></div>
+        <div class="arrow">&#8594;</div>
+        <div class="step"><div class="tag">Learn</div><h4>RL Agent</h4><p>Rewarded for throughput and shorter waits, it improves the signal policy over thousands of episodes.</p></div>
+        <div class="arrow">&#8594;</div>
+        <div class="step"><div class="tag">Stress-Test</div><h4>Scenario Simulation</h4><p>Events, incidents, road closures &mdash; tested safely offline before any real change.</p></div>
+        <div class="arrow">&#8594;</div>
+        <div class="step safety"><div class="tag">Deploy</div><h4>Validated Policy</h4><p>The best policy feeds the live adaptive layer &mdash; still gated by the deterministic safety filter.</p></div>
+      </div>
+      <div class="callout reveal" style="--d:3">The demo shows Sehla reasoning in real time. <b>SUMO RL is the engine behind it</b> &mdash; a continuous loop that keeps re-training as new data arrives, so every improvement is proven in simulation, and any scenario stress-tested, <b>before it ever reaches a real signal.</b></div>
+    </div>
+  </section>
+
+  <!-- 7: ALSO EXTENDS TO (fleet auction + event-aware, condensed) -->
+  <section class="slide" data-title="Also Extends To">
+    <div class="slide-content body-block">
+      <p class="eyebrow reveal" style="--d:0">Also Extends To</p>
+      <h1 class="slide-title reveal" style="--d:1">Two more layers: <span class="accent m">fleet demand</span> and <span class="accent">events</span></h1>
       <div class="cols2 reveal" style="--d:2">
-        <div class="card"><h3>Pittsburgh — Surtrac (AI adaptive signals)</h3><ul><li><b>40%</b> reduction in vehicle wait time</li><li><b>25%</b> reduction in travel time</li><li><b>21%</b> reduction in emissions</li></ul><p class="cite">Smart Cities Dive; US DOT UTC Spotlight</p></div>
-        <div class="card"><h3 class="m">Singapore — Electronic Road Pricing</h3><ul><li><b>17%</b> drop in morning peak traffic, day one</li><li><b>+20%</b> average road speed increase</li><li><b>+12–20%</b> peak-period bus ridership shift</li></ul><p class="cite">Development Asia case study</p></div>
+        <div class="card"><h3 class="m">Fleet Routing via VCG Auction</h3><p>Commercial fleets bid for peak-hour corridor slots. Winners pay for guaranteed access; non-winners shift off-peak for a Salik "congestion credit" &mdash; a new revenue stream for RTA, and smaller fleets are compensated, not punished.</p></div>
+        <div class="card"><h3>Event-Aware Pre-Optimization</h3><p>A Mistral agent watches Dubai's live events calendar and pre-times signals and pedestrian phases before a crowd surge forms &mdash; e.g. a sold-out Coca-Cola Arena show, retimed before doors open.</p></div>
       </div>
-      <div class="callout reveal" style="--d:3">Singapore needed a <b>city-wide gantry network</b> to price access; Sehla achieves both mechanisms <b>in software</b>, on data RTA already has.</div>
+      <div class="callout reveal" style="--d:3">Both run through the <b>same deterministic safety filter</b>, on data RTA already collects &mdash; no new hardware.</div>
     </div>
   </section>
 
-  <!-- 10: BUSINESS MODEL -->
-  <section class="slide" data-title="Business Model">
+  <!-- 8: POSITIONING VS FUSION -->
+  <section class="slide" data-title="Positioning vs RTA's Fusion">
     <div class="slide-content body-block">
-      <p class="eyebrow reveal" style="--d:0">Business Plan</p>
-      <h1 class="slide-title reveal" style="--d:1">Cost, revenue, and <span class="accent">low-risk implementation</span></h1>
-      <div class="cols3 reveal" style="--d:2">
-        <div class="card"><h3 class="m">Cost</h3><p>Software-only. No new sensors, signal boxes, or gantries — runs on RTA's existing data feeds.</p></div>
-        <div class="card"><h3 class="m">Revenue</h3><p>VCG auction fees from logistics fleets for guaranteed peak-hour access — a new, ongoing stream.</p></div>
-        <div class="card"><h3 class="m">Implementation</h3><p>Shadow deployment first — measure-only, zero live-control risk — before any wider commitment.</p></div>
+      <p class="eyebrow reveal" style="--d:0">We Did Our Homework</p>
+      <h1 class="slide-title reveal" style="--d:1">RTA already has <span class="accent">Fusion</span>. Here's where Sehla fits.</h1>
+      <div class="cols2 reveal" style="--d:2">
+        <div class="card"><h3>RTA's Fusion (UTC-UX Fusion) &mdash; live, rolling out now</h3><ul><li>AI + digital-twin signal control, already deployed at live intersections</li><li><b>16&ndash;37%</b> efficiency gains in Phase 1; targeting <b>~300 intersections by Q3 2026</b></li><li>Simulates changes in a digital twin before applying them</li><li>Built for future V2X (vehicle-to-signal) communication</li></ul></div>
+        <div class="card"><h3 class="m">The gap Sehla sits in</h3><ul><li>Fusion optimizes signal timing from live traffic data &mdash; it doesn't touch fleet demand, truck permits, or tolling</li><li>It reacts to congestion as it forms &mdash; it isn't wired to Dubai's events calendar to anticipate demand before it arrives</li><li>Sehla adds SUMO-RL continuous optimization, the VCG fleet auction, and event-aware pre-optimization on top</li></ul></div>
       </div>
+      <div class="callout reveal" style="--d:3">Sehla isn't a rival to Fusion &mdash; it's designed to <b>sit alongside it</b>, adding the layers Fusion doesn't cover.</div>
+      <p class="cite reveal" style="--d:3">Government of Dubai Media Office, "RTA's Traffic Signal Upgrade Boosts Flow 37%," 4 Sep 2025.</p>
     </div>
   </section>
 
-  <!-- 11: ADOPTION PATH -->
-  <section class="slide" data-title="Adoption Path">
-    <div class="slide-content body-block">
-      <p class="eyebrow reveal" style="--d:0">Adoption Path</p>
-      <h1 class="slide-title reveal" style="--d:1">From one junction to <span class="accent">city-wide</span></h1>
-      <div class="path reveal" style="--d:2">
-        <div class="stage"><div class="n">1</div><h4>Shadow Deployment</h4><p>One junction, measure only — no live control, zero operational risk.</p></div>
-        <div class="arrow">&#8594;</div>
-        <div class="stage"><div class="n">2</div><h4>100-Fleet Pilot</h4><p>Partner with a logistics operator (e.g. Aramex-scale) on the auction engine.</p></div>
-        <div class="arrow">&#8594;</div>
-        <div class="stage"><div class="n">3</div><h4>City-Wide Rollout</h4><p>Full integration across RTA's adaptive signal network and auction platform.</p></div>
-      </div>
-      <div class="callout reveal" style="--d:3">Why RTA, why now: the fastest, lowest-capex path to measurable congestion relief — complementing the Dh170B national transport package already committed through 2030.</div>
-    </div>
-  </section>
-
-  <!-- 12: EXPECTED RETURNS -->
+  <!-- 9: EXPECTED RETURNS + PROVEN ELSEWHERE (benchmarks merged in) -->
   <section class="slide" data-title="Expected Returns">
     <div class="slide-content body-block">
-      <p class="eyebrow reveal" style="--d:0">Expected Returns</p>
+      <p class="eyebrow reveal" style="--d:0">Expected Returns &mdash; Proven Elsewhere</p>
       <h1 class="slide-title reveal" style="--d:1">What comparable deployments suggest is <span class="accent">achievable</span></h1>
       <div class="cols2 reveal" style="--d:2">
         <div class="card">
@@ -683,17 +577,37 @@ h1.slide-title .accent.m{ color:var(--magenta); }
           </div>
         </div>
       </div>
-      <p class="cite reveal" style="--d:3">Benchmark-derived, illustrative projections — not yet Sehla-measured results. Baseline: RTA congestion-cost estimate as reported by regional press; ranges from Surtrac (Pittsburgh) and Singapore ERP case studies (see Sources).</p>
+      <div class="callout reveal" style="--d:3">Singapore needed a <b>city-wide gantry network</b> to price access; Sehla targets the same class of gains <b>in software</b>, on data RTA already has. Figures are benchmark-derived and illustrative &mdash; not yet Sehla-measured (see Sources).</div>
     </div>
   </section>
 
-  <!-- 13: RESPONSIBLE AI -->
-  <section class="slide" data-title="Responsible AI & Data">
+  <!-- 10: BUSINESS PLAN & ROLLOUT (business model + adoption + roadmap merged) -->
+  <section class="slide" data-title="Business Plan &amp; Rollout">
+    <div class="slide-content body-block">
+      <p class="eyebrow reveal" style="--d:0">Business Plan &amp; Rollout</p>
+      <h1 class="slide-title reveal" style="--d:1">Cost, revenue, and a <span class="accent">low-risk path</span> to city-wide</h1>
+      <div class="cols3 reveal" style="--d:2">
+        <div class="card"><h3 class="m">Cost</h3><p>Software-only. No new sensors, signal boxes, or gantries &mdash; runs on RTA's existing data feeds.</p></div>
+        <div class="card"><h3 class="m">Revenue</h3><p>VCG auction fees from logistics fleets for guaranteed peak-hour access &mdash; a new, ongoing stream.</p></div>
+        <div class="card"><h3 class="m">Risk</h3><p>Shadow deployment first &mdash; measure-only, zero live-control risk &mdash; before any wider commitment.</p></div>
+      </div>
+      <div class="path reveal" style="--d:3">
+        <div class="stage"><div class="n">1</div><h4>Shadow Deployment</h4><p>One junction, measure only &mdash; no live control, zero operational risk.</p></div>
+        <div class="arrow">&#8594;</div>
+        <div class="stage"><div class="n">2</div><h4>100-Fleet Pilot</h4><p>Partner with a logistics operator (e.g. Aramex-scale) on the auction engine.</p></div>
+        <div class="arrow">&#8594;</div>
+        <div class="stage"><div class="n">3</div><h4>City-Wide Rollout</h4><p>Full integration across RTA's adaptive signal network and auction platform.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11: RESPONSIBLE AI -->
+  <section class="slide" data-title="Responsible AI &amp; Data">
     <div class="slide-content body-block">
       <p class="eyebrow reveal" style="--d:0">Responsible AI &amp; Data Plan</p>
       <h1 class="slide-title reveal" style="--d:1">Safe, fair, and <span class="accent">transparent</span> by design</h1>
       <div class="pillars reveal" style="--d:2">
-        <div class="pillar"><div class="ic">&#128203;</div><div><h4>Data</h4><p>Aggregated traffic flow, volume and signal-timing data only — no personal or vehicle-owner data.</p></div></div>
+        <div class="pillar"><div class="ic">&#128203;</div><div><h4>Data</h4><p>Aggregated traffic flow, volume and signal-timing data only &mdash; no personal or vehicle-owner data.</p></div></div>
         <div class="pillar"><div class="ic">&#128737;&#65039;</div><div><h4>Safety</h4><p>AI proposes, hard-coded rules dispose. Every suggestion is checked before it can affect a road.</p></div></div>
         <div class="pillar"><div class="ic">&#128161;</div><div><h4>Transparency</h4><p>The Reasoning Panel explains each decision's logic in plain English, in real time.</p></div></div>
         <div class="pillar"><div class="ic">&#9878;&#65039;</div><div><h4>Fairness</h4><p>A minimum slot share is reserved for smaller operators; outcomes monitored by fleet size.</p></div></div>
@@ -701,25 +615,7 @@ h1.slide-title .accent.m{ color:var(--magenta); }
     </div>
   </section>
 
-  <!-- 15: ROADMAP -->
-  <section class="slide" data-title="Roadmap">
-    <div class="slide-content body-block">
-      <p class="eyebrow reveal" style="--d:0">Roadmap</p>
-      <h1 class="slide-title reveal" style="--d:1">From <span class="accent">hackathon prototype</span> to city-wide rollout</h1>
-      <div class="roadmap reveal" style="--d:2">
-        <div class="rline"></div>
-        <div class="rsteps">
-          <div class="rstep now"><div class="dt"></div><h4>Phase 0 — Now</h4><p>Working prototype on historical RTA data; live Mistral integration; Before/After map.</p></div>
-          <div class="rstep"><div class="dt"></div><h4>Phase 1</h4><p>Shadow deployment at a single junction — measure only, verify safety.</p></div>
-          <div class="rstep"><div class="dt"></div><h4>Phase 2</h4><p>100-fleet pilot with a logistics partner on the VCG auction engine.</p></div>
-          <div class="rstep"><div class="dt"></div><h4>Phase 3</h4><p>Full integration with RTA's adaptive signal controllers and city-wide auction.</p></div>
-        </div>
-      </div>
-      <div class="callout reveal" style="--d:3">Engineering build sequence underneath: 2D SUMO simulation → 3D Cesium twin → real-data calibration → reinforcement-learning optimization → Mistral orchestration &amp; dashboard.</div>
-    </div>
-  </section>
-
-  <!-- 16: THANK YOU -->
+  <!-- 12: THANK YOU -->
   <section class="slide ty" data-title="Thank You">
     <!-- closing skyline bookend (reuses the sunset skyline system) -->
     <div class="illus illus-skyline illus-sunset" aria-hidden="true">
@@ -753,28 +649,28 @@ h1.slide-title .accent.m{ color:var(--magenta); }
     </div>
     <div class="slide-content">
       <h1 class="big reveal" style="--d:0">Sehla</h1>
-      <p class="line reveal" style="--d:1">A software upgrade to infrastructure RTA already owns — the fastest, lowest-capex path to measurable congestion relief.</p>
-      <p class="line reveal" style="--d:2; font-size:1rem;">Thank you — questions welcome.</p>
+      <p class="line reveal" style="--d:1">A software upgrade to infrastructure RTA already owns &mdash; the fastest, lowest-capex path to measurable congestion relief.</p>
+      <p class="line reveal" style="--d:2; font-size:1rem;">Thank you &mdash; questions welcome.</p>
     </div>
   </section>
 
-  <!-- 17: SOURCES -->
+  <!-- 13: SOURCES -->
   <section class="slide" data-title="Sources (Appendix)">
     <div class="slide-content body-block">
       <p class="eyebrow reveal" style="--d:0">Appendix</p>
       <h1 class="slide-title reveal" style="--d:1">Sources &amp; References</h1>
       <ul class="src-list reveal" style="--d:2">
-        <li>Waheed Abbas, "Dubai motorists lose nearly 4 days to traffic in 2025 as congestion rises," Khaleej Times, 25 Jan 2026 — TomTom Traffic Index / INRIX data.</li>
+        <li>Waheed Abbas, "Dubai motorists lose nearly 4 days to traffic in 2025 as congestion rises," Khaleej Times, 25 Jan 2026 &mdash; TomTom Traffic Index / INRIX data.</li>
         <li>SM Ayaz Zakir, "Dubai RTA adds two more lanes to Emirates Road, upgrades Business Bay and 26 other locations," Khaleej Times, 30 Jun 2026.</li>
-        <li>"RTA turns 20: Dh175 billion to ease traffic congestion and mobility in Dubai," Gulf News, Oct 2025 — McKinsey &amp; Company study.</li>
-        <li>Government of Dubai Media Office, "RTA's Traffic Signal Upgrade Boosts Flow 37%," 4 Sep 2025 — UTC-UX Fusion Phase 1 results and rollout timeline.</li>
-        <li>Development Asia, "The Case for Electronic Road Pricing" — Singapore ERP case study.</li>
+        <li>"RTA turns 20: Dh175 billion to ease traffic congestion and mobility in Dubai," Gulf News, Oct 2025 &mdash; McKinsey &amp; Company study.</li>
+        <li>Government of Dubai Media Office, "RTA's Traffic Signal Upgrade Boosts Flow 37%," 4 Sep 2025 &mdash; UTC-UX Fusion Phase 1 results and rollout timeline.</li>
+        <li>Development Asia, "The Case for Electronic Road Pricing" &mdash; Singapore ERP case study.</li>
         <li>Smart Cities Dive, "This AI traffic system in Pittsburgh has reduced travel time by 25%."</li>
-        <li>US Department of Transportation, UTC Spotlight — "Surtrac for the People."</li>
-        <li>CUD 4IR Mobility Student Challenge — Day 1 briefing deck, RTA × Canadian University Dubai, 30 Jun 2026.</li>
-        <li>Sehla Project Description Document (team submission) — solution, business, marketing &amp; responsible-AI plans.</li>
-        <li>Sehla Development Roadmap (team submission) — engineering build phases.</li>
-        <li>Mistral API Docs · Next.js · FastAPI · VCG Auction Mechanism — Stanford University Auction Theory.</li>
+        <li>US Department of Transportation, UTC Spotlight &mdash; "Surtrac for the People."</li>
+        <li>Eclipse SUMO (Simulation of Urban MObility) &mdash; open-source traffic microsimulation, DLR.</li>
+        <li>CUD 4IR Mobility Student Challenge &mdash; Day 1 briefing deck, RTA &times; Canadian University Dubai, 30 Jun 2026.</li>
+        <li>Sehla Project Description Document &amp; Development Roadmap (team submissions).</li>
+        <li>Mistral API Docs &middot; Next.js &middot; FastAPI &middot; VCG Auction Mechanism &mdash; Stanford University Auction Theory.</li>
       </ul>
     </div>
   </section>
@@ -801,9 +697,9 @@ h1.slide-title .accent.m{ color:var(--magenta); }
     const brand = document.createElement('div');
     brand.className = 'brandbar';
     brand.innerHTML = '<div class="orgmarks">'
-      + '<div class="orgmark orgmark--cud" title="Canadian University Dubai"><img src="cud_logo.jpg" alt="Canadian University Dubai" loading="lazy"></div>'
-      + '<div class="orgmark orgmark--rta" title="Roads &amp; Transport Authority"><img src="rta_logo.png" alt="Roads & Transport Authority" loading="lazy"></div>'
-      + '<div class="orgmark orgmark--mistral" title="Mistral AI"><img src="mistral-color.png" alt="Mistral AI" loading="lazy"></div>'
+      + '<div class="orgmark orgmark--cud" title="Canadian University Dubai"><img src="cud_logo.jpg" alt="Canadian University Dubai"></div>'
+      + '<div class="orgmark orgmark--rta" title="Roads &amp; Transport Authority"><img src="rta_logo.png" alt="Roads & Transport Authority"></div>'
+      + '<div class="orgmark orgmark--mistral" title="Mistral AI"><img src="mistral-color.png" alt="Mistral AI"></div>'
       + '</div>';
     s.appendChild(brand);
 
