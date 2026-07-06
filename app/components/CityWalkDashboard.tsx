@@ -122,6 +122,22 @@ const signalColor = {
   red: "#EF4444"
 };
 
+// Dim (unlit) lamp colors for the inactive lenses in a signal head.
+const signalLampDim = {
+  green: "#123128",
+  amber: "#3B2E0C",
+  red: "#3A1616"
+};
+
+// Soft glow used behind the lit lamp.
+const signalGlow = {
+  green: "rgba(46, 196, 160, 0.55)",
+  amber: "rgba(245, 158, 11, 0.55)",
+  red: "rgba(239, 68, 68, 0.55)"
+};
+
+const signalLampOrder = ["red", "amber", "green"] as const;
+
 const roadRank: Record<string, number> = {
   service: 1,
   living_street: 1,
@@ -834,6 +850,94 @@ function drawVehicle(ctx: CanvasRenderingContext2D, x: number, y: number, angle:
   ctx.restore();
 }
 
+// Draws an identifiable traffic-signal head. When zoomed out it degrades to a
+// single glowing lamp so the map stays readable; when zoomed in it renders a
+// proper three-lens housing with the active phase lit and the others dimmed.
+function drawSignalHead(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  active: "green" | "amber" | "red",
+  scale: number
+) {
+  // Low-detail: a single lit lamp with a soft halo.
+  if (scale <= 0.55) {
+    const r = scale > 0.36 ? 3 : 2.2;
+    ctx.beginPath();
+    ctx.arc(x, y, r + 2.4, 0, Math.PI * 2);
+    ctx.fillStyle = signalGlow[active];
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = signalColor[active];
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(15, 23, 42, 0.5)";
+    ctx.stroke();
+    return;
+  }
+
+  // Full signal head.
+  const lampR = Math.min(4.4, Math.max(2.7, scale * 3.3));
+  const gap = lampR * 0.85;
+  const padX = lampR * 0.75;
+  const padY = lampR * 0.7;
+  const w = lampR * 2 + padX * 2;
+  const h = lampR * 6 + gap * 2 + padY * 2;
+  const left = x - w / 2;
+  const top = y - h / 2;
+  const radius = w * 0.42;
+
+  // Translucent housing with a subtle lift shadow, so the map reads through it.
+  ctx.save();
+  ctx.shadowColor = "rgba(15, 23, 42, 0.22)";
+  ctx.shadowBlur = 3;
+  ctx.shadowOffsetY = 1;
+  ctx.beginPath();
+  ctx.roundRect(left, top, w, h, radius);
+  ctx.fillStyle = "rgba(22, 28, 40, 0.5)";
+  ctx.fill();
+  ctx.restore();
+
+  // Housing edge for definition against the map.
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(15, 23, 42, 0.28)";
+  ctx.beginPath();
+  ctx.roundRect(left, top, w, h, radius);
+  ctx.stroke();
+
+  const firstY = top + padY + lampR;
+  const step = lampR * 2 + gap;
+
+  signalLampOrder.forEach((lamp, index) => {
+    const cy = firstY + step * index;
+    const isActive = lamp === active;
+
+    if (isActive) {
+      const halo = ctx.createRadialGradient(x, cy, lampR * 0.3, x, cy, lampR * 2.5);
+      halo.addColorStop(0, signalGlow[lamp]);
+      halo.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.beginPath();
+      ctx.arc(x, cy, lampR * 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = halo;
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(x, cy, lampR, 0, Math.PI * 2);
+    ctx.fillStyle = isActive ? signalColor[lamp] : signalLampDim[lamp];
+    ctx.fill();
+
+    if (isActive) {
+      // Bright specular highlight on the lit lens.
+      ctx.beginPath();
+      ctx.arc(x - lampR * 0.28, cy - lampR * 0.28, lampR * 0.42, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.fill();
+    }
+  });
+}
+
 function sampleRoute(route: VehicleRoute, compiledRoads: CompiledRoad[], progress: number): RouteSample {
   const target = ((progress % 1) + 1) % 1 * route.length;
 
@@ -1164,16 +1268,9 @@ function TrafficMap({
 
       for (const signal of osmSignals) {
         const point = screenFromWorld(worldFromLatLon(signal), currentView);
-        if (point.x < -18 || point.y < -18 || point.x > size.width + 18 || point.y > size.height + 18) continue;
+        if (point.x < -28 || point.y < -34 || point.x > size.width + 28 || point.y > size.height + 34) continue;
         const phase = phaseForSignal(signal, seconds, scenarioModeRef.current, signalStrategyRef.current);
-        context.beginPath();
-        context.arc(point.x, point.y, currentView.scale > 0.45 ? 5.5 : 3.6, 0, Math.PI * 2);
-        context.fillStyle = "#1A2332";
-        context.fill();
-        context.beginPath();
-        context.arc(point.x, point.y, currentView.scale > 0.45 ? 3.2 : 2.1, 0, Math.PI * 2);
-        context.fillStyle = signalColor[phase.color];
-        context.fill();
+        drawSignalHead(context, point.x, point.y, phase.color, currentView.scale);
       }
 
       raf = requestAnimationFrame(draw);
