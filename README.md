@@ -1,6 +1,6 @@
-# CityWalk Traffic Twin
+# SEHLA RTA Traffic Digital Twin
 
-CityWalk Traffic Twin is a Next.js command-center prototype for traffic operations around City Walk Dubai. It renders an OpenStreetMap-derived road network on a canvas map, overlays simulated vehicles and signal states, and can optionally merge TomTom Traffic Flow API data when a `TOMTOM_API_KEY` is available.
+This is a Next.js command-center prototype for traffic operations around  Dubai. It renders an OpenStreetMap-derived road network on a canvas map, overlays simulated vehicles and signal states, and can optionally merge TomTom Traffic Flow API data when a `TOMTOM_API_KEY` is available.
 
 ## What It Does
 
