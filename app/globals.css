@@ -485,6 +485,8 @@ h1 {
 .legendSecondary { background: #F9DE8B; }
 .legendAccess { background: #FFFFFF; border: 1px solid #CBD5E1; }
 .legendSignal { background: #1A2332; }
+.legendDot { border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9); }
+.legendDiamond { border-radius: 1.5px; transform: rotate(45deg); box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9); }
 
 .commandMetrics {
   border-top: 1px solid var(--border);

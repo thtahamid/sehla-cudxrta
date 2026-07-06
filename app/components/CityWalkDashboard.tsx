@@ -15,6 +15,12 @@ import {
 import AgentAdvisoryRail, { type AppliedResult, type RailStatus } from "@/app/components/AgentAdvisoryRail";
 import { useCongestionWatcher } from "@/app/components/useCongestionWatcher";
 import type { Advisory, AdvisoryResponse, Snapshot } from "@/app/lib/advisory";
+import {
+  rtaKeyLocations,
+  profileColor,
+  controlColor,
+  type RtaLocation
+} from "@/app/data/rta-locations";
 
 type Flow = {
   segmentId: string;
@@ -938,6 +944,89 @@ function drawSignalHead(
   });
 }
 
+type KeyLocationView = RtaLocation & { world: WorldPoint };
+
+// Draws the RTA city-wide key locations: monitoring sites as color-coded pins,
+// signal junctions as color-coded diamonds. Markers are fixed screen size so they
+// stay readable at the wide city zoom used for this layer.
+function drawKeyLocations(
+  ctx: CanvasRenderingContext2D,
+  size: MapSize,
+  view: ViewTransform,
+  locations: KeyLocationView[],
+  selectedId: string | null
+) {
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  for (const loc of locations) {
+    const p = screenFromWorld(loc.world, view);
+    if (p.x < -40 || p.y < -40 || p.x > size.width + 40 || p.y > size.height + 40) continue;
+    const isSelected = loc.id === selectedId;
+    const color = loc.kind === "site" ? profileColor[loc.profile] : controlColor[loc.controlType];
+
+    if (isSelected) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 16, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(46, 196, 160, 0.20)";
+      ctx.fill();
+    }
+
+    ctx.save();
+    ctx.shadowColor = "rgba(15, 23, 42, 0.28)";
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetY = 1;
+
+    if (loc.kind === "site") {
+      const r = isSelected ? 7.5 : 6;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r + 2, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.96)";
+      ctx.fill();
+      ctx.shadowColor = "transparent";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r * 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+      ctx.fill();
+    } else {
+      const half = isSelected ? 8 : 6.5;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.96)";
+      ctx.beginPath();
+      ctx.roundRect(-(half + 2), -(half + 2), (half + 2) * 2, (half + 2) * 2, 3);
+      ctx.fill();
+      ctx.shadowColor = "transparent";
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(-half, -half, half * 2, half * 2, 2.5);
+      ctx.fill();
+      ctx.restore();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, half * 0.34, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Label with a white halo for legibility over the map.
+    ctx.font = isSelected ? "700 10.5px Helvetica Neue, sans-serif" : "600 10px Helvetica Neue, sans-serif";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.92)";
+    ctx.strokeText(loc.id, p.x, p.y + 17);
+    ctx.fillStyle = isSelected ? "#0F766E" : "#334155";
+    ctx.fillText(loc.id, p.x, p.y + 17);
+  }
+
+  ctx.restore();
+}
+
 function sampleRoute(route: VehicleRoute, compiledRoads: CompiledRoad[], progress: number): RouteSample {
   const target = ((progress % 1) + 1) % 1 * route.length;
 
@@ -1090,7 +1179,7 @@ function nearestRoadAt(compiledRoads: CompiledRoad[], point: WorldPoint, view: V
   return selected;
 }
 
-type MapFilter = "all" | "arterial" | "signals";
+type MapFilter = "all" | "arterial" | "signals" | "rta";
 
 function TrafficMap({
   compiledRoads,
@@ -1102,7 +1191,11 @@ function TrafficMap({
   reducedMotion,
   scenarioMode,
   signalStrategy,
-  onSelect
+  onSelect,
+  keyLocations,
+  showKeyLocations,
+  selectedLocationId,
+  onSelectLocation
 }: {
   compiledRoads: CompiledRoad[];
   pedestrianWays: CompiledRoad[];
@@ -1114,6 +1207,10 @@ function TrafficMap({
   scenarioMode: ScenarioMode;
   signalStrategy: SignalStrategy;
   onSelect: (id: string) => void;
+  keyLocations: KeyLocationView[];
+  showKeyLocations: boolean;
+  selectedLocationId: string | null;
+  onSelectLocation: (id: string | null) => void;
 }) {
   const staticCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dynamicCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1129,7 +1226,19 @@ function TrafficMap({
   const signalStrategyRef = useRef(signalStrategy);
   const [size, setSize] = useState<MapSize>({ width: 960, height: 620 });
   const [view, setView] = useState<ViewTransform>({ scale: 1, tx: 0, ty: 0 });
-  const bounds = useMemo(() => worldBounds(compiledRoads), [compiledRoads]);
+  const bounds = useMemo(() => {
+    const base = worldBounds(compiledRoads);
+    if (!showKeyLocations || keyLocations.length === 0) return base;
+    // Expand to fit the city-wide RTA locations so the whole set is visible.
+    let { minX, minY, maxX, maxY } = base;
+    for (const loc of keyLocations) {
+      minX = Math.min(minX, loc.world.x);
+      minY = Math.min(minY, loc.world.y);
+      maxX = Math.max(maxX, loc.world.x);
+      maxY = Math.max(maxY, loc.world.y);
+    }
+    return { minX, minY, maxX, maxY };
+  }, [compiledRoads, showKeyLocations, keyLocations]);
   const vehicleRoutes = useMemo(() => buildVehicleRoutes(compiledRoads), [compiledRoads]);
   const dragRef = useRef<{ x: number; y: number; tx: number; ty: number; moved: boolean } | null>(null);
 
@@ -1198,7 +1307,10 @@ function TrafficMap({
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     drawStaticMap(ctx, size, view, compiledRoads, pedestrianWays, selectedId, filter);
-  }, [compiledRoads, filter, pedestrianWays, selectedId, size, view]);
+    if (showKeyLocations) {
+      drawKeyLocations(ctx, size, view, keyLocations, selectedLocationId);
+    }
+  }, [compiledRoads, filter, pedestrianWays, selectedId, size, view, showKeyLocations, keyLocations, selectedLocationId]);
 
   useEffect(() => {
     const canvas = dynamicCanvasRef.current;
@@ -1339,10 +1451,33 @@ function TrafficMap({
     if (!drag || drag.moved) return;
 
     const rect = event.currentTarget.getBoundingClientRect();
-    const world = worldFromScreen({ x: event.clientX - rect.left, y: event.clientY - rect.top }, viewRef.current);
+    const screen = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+
+    // In the RTA layer, prefer selecting a nearby key-location marker.
+    if (showKeyLocations) {
+      let best: KeyLocationView | null = null;
+      let bestDist = 18;
+      for (const loc of keyLocations) {
+        const p = screenFromWorld(loc.world, viewRef.current);
+        const d = Math.hypot(p.x - screen.x, p.y - screen.y);
+        if (d < bestDist) {
+          bestDist = d;
+          best = loc;
+        }
+      }
+      if (best) {
+        onSelectLocation(best.id);
+        return;
+      }
+    }
+
+    const world = worldFromScreen(screen, viewRef.current);
     const match = nearestRoadAt(compiledRoads, world, viewRef.current, filterRef.current);
-    if (match) onSelect(match.road.id);
-  }, [compiledRoads, onSelect]);
+    if (match) {
+      onSelect(match.road.id);
+      onSelectLocation(null);
+    }
+  }, [compiledRoads, onSelect, showKeyLocations, keyLocations, onSelectLocation]);
 
   return (
     <div className="mapViewport" ref={wrapperRef}>
@@ -1370,10 +1505,22 @@ function TrafficMap({
         <span>{Math.round(100 / Math.max(view.scale, 0.01))} m</span>
       </div>
       <div className="mapLegend">
-        <span><i className="legendMotorway" /> arterial</span>
-        <span><i className="legendSecondary" /> collector</span>
-        <span><i className="legendAccess" /> access</span>
-        <span><i className="legendSignal" /> signal</span>
+        {showKeyLocations ? (
+          <>
+            <span><i className="legendDot" style={{ background: "#2563EB" }} /> commuter</span>
+            <span><i className="legendDot" style={{ background: "#475569" }} /> freight</span>
+            <span><i className="legendDot" style={{ background: "#0D9488" }} /> leisure</span>
+            <span><i className="legendDiamond" style={{ background: "#2EC4A0" }} /> adaptive</span>
+            <span><i className="legendDiamond" style={{ background: "#F59E0B" }} /> fixed-time</span>
+          </>
+        ) : (
+          <>
+            <span><i className="legendMotorway" /> arterial</span>
+            <span><i className="legendSecondary" /> collector</span>
+            <span><i className="legendAccess" /> access</span>
+            <span><i className="legendSignal" /> signal</span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1397,6 +1544,17 @@ export default function CityWalkDashboard() {
   const [scenarioMode, setScenarioMode] = useState<ScenarioMode>("congestion");
   const [signalStrategy, setSignalStrategy] = useState<SignalStrategy>("standard");
   const [activeTab, setActiveTab] = useState<"map" | "signals" | "data">("map");
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+
+  // RTA key locations projected to the map's world coordinate space.
+  const keyLocations = useMemo<KeyLocationView[]>(
+    () => rtaKeyLocations.map((loc) => ({ ...loc, world: worldFromLatLon(loc) })),
+    []
+  );
+  const selectedLocation = useMemo(
+    () => rtaKeyLocations.find((loc) => loc.id === selectedLocationId) ?? null,
+    [selectedLocationId]
+  );
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -1483,6 +1641,21 @@ export default function CityWalkDashboard() {
   function selectSearchMatch() {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return;
+
+    // Search the RTA key locations first (by id, name, area, or road).
+    const locationMatch = rtaKeyLocations.find(
+      (loc) =>
+        loc.id.toLowerCase().includes(term) ||
+        loc.name.toLowerCase().includes(term) ||
+        loc.area.toLowerCase().includes(term) ||
+        (loc.kind === "site" && (loc.roadName.toLowerCase().includes(term) || loc.roadCode.toLowerCase().includes(term)))
+    );
+    if (locationMatch) {
+      setFilter("rta");
+      setSelectedLocationId(locationMatch.id);
+      return;
+    }
+
     const match = osmRoads.find((road) => road.name.toLowerCase().includes(term) || road.ref.toLowerCase().includes(term));
     if (match) setSelectedId(match.id);
   }
@@ -1663,6 +1836,7 @@ export default function CityWalkDashboard() {
             <option value="all">Full OSM network</option>
             <option value="arterial">Main roads</option>
             <option value="signals">Signal corridors</option>
+            <option value="rta">RTA key locations</option>
           </select>
           <button className="secondaryButton" type="button" onClick={selectSearchMatch}>Find</button>
         </div>
@@ -1767,9 +1941,44 @@ export default function CityWalkDashboard() {
               scenarioMode={scenarioMode}
               selectedId={selectedId}
               signalStrategy={signalStrategy}
+              keyLocations={keyLocations}
+              showKeyLocations={filter === "rta"}
+              selectedLocationId={selectedLocationId}
+              onSelectLocation={setSelectedLocationId}
             />
 
             <div className="detailPanel">
+              {selectedLocation && (
+                <div className="detailSection">
+                  <h3>RTA Key Location</h3>
+                  <div className="selectedTitle">
+                    <strong>{selectedLocation.name}</strong>
+                    <span>
+                      {selectedLocation.id} &middot;{" "}
+                      <span className="statusBadge">{selectedLocation.kind === "site" ? "monitoring site" : "signal junction"}</span>
+                    </span>
+                  </div>
+                  {selectedLocation.kind === "site" ? (
+                    <dl className="detailList">
+                      <div><dt>Road</dt><dd>{selectedLocation.roadName} ({selectedLocation.roadCode})</dd></div>
+                      <div><dt>Area</dt><dd>{selectedLocation.area}</dd></div>
+                      <div><dt>Direction</dt><dd>{selectedLocation.direction}</dd></div>
+                      <div><dt>Lanes</dt><dd>{selectedLocation.numLanes}</dd></div>
+                      <div><dt>Speed limit</dt><dd>{selectedLocation.speedLimit} km/h (free-flow {selectedLocation.freeFlowSpeed})</dd></div>
+                      <div><dt>Capacity</dt><dd>{selectedLocation.capacity.toLocaleString()} veh/h</dd></div>
+                      <div><dt>AADT</dt><dd>{selectedLocation.aadt.toLocaleString()} /dir</dd></div>
+                    </dl>
+                  ) : (
+                    <dl className="detailList">
+                      <div><dt>Area</dt><dd>{selectedLocation.area}</dd></div>
+                      <div><dt>Approaches</dt><dd>{selectedLocation.numApproaches}</dd></div>
+                      <div><dt>Peak demand</dt><dd>{selectedLocation.peakDemand.toLocaleString()} veh/h</dd></div>
+                      <div><dt>Control</dt><dd>{selectedLocation.controlType}</dd></div>
+                    </dl>
+                  )}
+                  <button className="secondaryButton small" type="button" onClick={() => setSelectedLocationId(null)}>Clear selection</button>
+                </div>
+              )}
               <div className="detailSection">
                 <h3>Selected Link</h3>
                 <div className="selectedTitle">
