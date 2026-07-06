@@ -4,12 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   mapBounds,
   osmIntersections,
-  osmMeta,
   osmPedestrianWays,
   osmPolygons,
   osmRoads,
   osmSignals,
-  osmTurnRestrictions,
   type LatLon,
   type OsmRoad,
   type OsmSignal
@@ -114,13 +112,6 @@ type MapSize = {
   width: number;
   height: number;
 };
-
-const navItems = [
-  ["Network", "M4 4h16v16H4z"],
-  ["Signals", "M6 3h12v6H6zM8 11h8v10H8z"],
-  ["Flow", "M4 12h14m-5-5 5 5-5 5"],
-  ["Data", "M5 5h14v14H5zM8 9h8M8 13h8M8 17h5"]
-] as const;
 
 const signalColor = {
   green: "#2EC4A0",
@@ -297,6 +288,13 @@ function angleDifference(a: number, b: number) {
   return Math.abs(normalizeAngle(a - b));
 }
 
+function signalApproachGroup(signal: OsmSignal, intersection: ManagedIntersection) {
+  const angle = Math.atan2(signal.lat - intersection.lat, signal.lon - intersection.lon);
+  const degrees = ((angle * 180) / Math.PI + 360) % 360;
+  const normalizedDegrees = degrees >= 180 ? degrees - 180 : degrees;
+  return normalizedDegrees < 90 ? 0 : 1;
+}
+
 function phaseForSignal(signal: OsmSignal, seconds: number, scenarioMode: ScenarioMode = "baseline", signalStrategy: SignalStrategy = "standard") {
   const managedIntersection = managedIntersectionForSignal(signal);
 
@@ -316,10 +314,12 @@ function phaseForSignal(signal: OsmSignal, seconds: number, scenarioMode: Scenar
     return { color: "red" as const, remaining: cycle - clock, label: "held red" };
   }
 
-  const cycle = 72 + (signal.osmId % 5) * 6;
-  const offset = signal.osmId % cycle;
+  const cycle = managedIntersection ? 84 + managedIntersection.waveOrder * 6 : 72 + (signal.osmId % 5) * 6;
+  const approachGroup = managedIntersection ? signalApproachGroup(signal, managedIntersection) : 0;
+  const halfCycle = Math.floor(cycle / 2);
+  const offset = managedIntersection ? approachGroup * halfCycle : signal.osmId % cycle;
   const clock = (seconds + offset) % cycle;
-  const green = Math.floor(cycle * 0.48);
+  const green = Math.floor(cycle * 0.45);
   const amber = 5;
 
   if (clock < green) return { color: "green" as const, remaining: green - clock, label: "green" };
@@ -1269,6 +1269,12 @@ function TrafficMap({
       <div className="mapScale">
         <span>{Math.round(100 / Math.max(view.scale, 0.01))} m</span>
       </div>
+      <div className="mapLegend">
+        <span><i className="legendMotorway" /> arterial</span>
+        <span><i className="legendSecondary" /> collector</span>
+        <span><i className="legendAccess" /> access</span>
+        <span><i className="legendSignal" /> signal</span>
+      </div>
     </div>
   );
 }
@@ -1290,6 +1296,7 @@ export default function CityWalkDashboard() {
   const [phaseClock, setPhaseClock] = useState(0);
   const [scenarioMode, setScenarioMode] = useState<ScenarioMode>("congestion");
   const [signalStrategy, setSignalStrategy] = useState<SignalStrategy>("standard");
+  const [activeTab, setActiveTab] = useState<"map" | "signals" | "data">("map");
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -1359,24 +1366,6 @@ export default function CityWalkDashboard() {
       .slice(0, 48);
   }, [searchTerm]);
 
-  const metrics = useMemo(() => {
-    const modeledLanes = osmRoads.reduce((sum, road) => sum + road.lanes, 0);
-    const activeFlows = osmRoads.map((road) => flowForRoad(road, effectiveFlowById));
-    const averageSpeed = Math.round(
-      activeFlows.reduce((sum, flow) => sum + flow.currentSpeed, 0) / Math.max(activeFlows.length, 1)
-    );
-    const congestion = Math.round(
-      (activeFlows.reduce((sum, flow) => sum + congestionRatio(flow), 0) / Math.max(activeFlows.length, 1)) * 100
-    );
-
-    return {
-      modeledLanes,
-      averageSpeed,
-      congestion,
-      flowSource: traffic?.mode ?? "simulation"
-    };
-  }, [effectiveFlowById, traffic?.mode]);
-
   const commandMetrics = useMemo(() => {
     const totalQueue = managedPlan.reduce((sum, intersection) => sum + intersection.queueMeters, 0);
     const averageDelay = Math.round(managedPlan.reduce((sum, intersection) => sum + intersection.delaySeconds, 0) / Math.max(managedPlan.length, 1));
@@ -1408,173 +1397,115 @@ export default function CityWalkDashboard() {
 
   return (
     <div className="appShell">
-      <aside className="sidebar" aria-label="Primary navigation">
-        <div className="sidebarHeader">
-          <button className="panelToggle" type="button" aria-label="Toggle navigation panel">
-            <Icon path="M4 5h16v14H4zM9 5v14M14 9l3 3-3 3" />
-          </button>
-        </div>
-
-        <nav className="navList">
-          {navItems.map(([label, path], index) => (
-            <a className={index === 0 ? "navItem active" : "navItem"} href={`#${label.toLowerCase()}`} key={label}>
-              <span className="navIcon">
-                <Icon path={path} />
-              </span>
-              <span>{label}</span>
-            </a>
-          ))}
-        </nav>
-
-        <div className="sidebarFooter">
-          <div className="avatar">
-            <Icon path="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0" />
+      <header className="pageHeader">
+        <div className="brand">
+          <div className="brandMark">
+            <Icon path="M4 16l4-8 4 5 4-7 4 10M5 19h14" />
           </div>
           <div>
-            <strong>Mobility Desk</strong>
-            <span>citywalk.ops</span>
+            <h1>SEHLI</h1>
+            <p>City Walk traffic command center</p>
           </div>
         </div>
-      </aside>
+
+        <div className="headerActions">
+          <label className="searchBox">
+            <span>Search</span>
+            <input
+              aria-label="Search road segment"
+              onChange={(event) => setSearchTerm(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") selectSearchMatch();
+              }}
+              placeholder="Al Safa, D71, Al Wasl"
+              value={searchTerm}
+            />
+          </label>
+          <select aria-label="Network filter" value={filter} onChange={(event) => setFilter(event.target.value as MapFilter)}>
+            <option value="all">Full OSM network</option>
+            <option value="arterial">Main roads</option>
+            <option value="signals">Signal corridors</option>
+          </select>
+          <button className="secondaryButton" type="button" onClick={selectSearchMatch}>Find</button>
+        </div>
+      </header>
 
       <main className="content">
-        <header className="pageHeader">
-          <div className="brand">
-            <div className="brandMark">
-              <Icon path="M4 16l4-8 4 5 4-7 4 10M5 19h14" />
-            </div>
-            <div>
-              <h1>CityWalk Traffic Twin</h1>
-              <p>OSM snapshot {osmMeta.sourceTimestamp?.slice(0, 10)}; English labels</p>
-            </div>
-          </div>
-
-          <div className="headerActions">
-            <label className="searchBox">
-              <span>Search</span>
-              <input
-                aria-label="Search road segment"
-                onChange={(event) => setSearchTerm(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") selectSearchMatch();
-                }}
-                placeholder="Al Safa, D71, Al Wasl"
-                value={searchTerm}
-              />
-            </label>
-            <select aria-label="Network filter" value={filter} onChange={(event) => setFilter(event.target.value as MapFilter)}>
-              <option value="all">Full OSM network</option>
-              <option value="arterial">Main roads</option>
-              <option value="signals">Signal corridors</option>
-            </select>
-            <button className="secondaryButton" type="button" onClick={selectSearchMatch}>Find</button>
-          </div>
-        </header>
-
         <section className="commandCenter reveal" style={{ "--i": 0 } as React.CSSProperties}>
-          <div className="commandOverview">
-            <div className="heroIcon">
-              <Icon path="M4 13h3l2-5 4 10 2-5h5M5 20h14M5 4h14" />
-            </div>
-            <div className="heroMetric">
-              <span>Network pressure</span>
-              <strong>{metrics.congestion}<em>%</em></strong>
-              <small>{metrics.flowSource === "tomtom" ? "TomTom live flow" : "simulated flow; API-ready"}</small>
-            </div>
-            <div className="heroMeta">
-              <span>Updated {traffic ? new Date(traffic.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "loading"}</span>
-              <span>{vehicleTarget.toLocaleString()} continuous-route vehicles; {osmSignals.length} OSM signal/crossing nodes; {osmTurnRestrictions.length} turn restrictions</span>
-            </div>
+          <div className="commandTabs" role="tablist">
+            <button
+              className={`commandTab ${activeTab === "map" ? "active" : ""}`}
+              role="tab"
+              aria-selected={activeTab === "map"}
+              type="button"
+              onClick={() => setActiveTab("map")}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z" /></svg>
+              Network Map
+            </button>
+            <button
+              className={`commandTab ${activeTab === "signals" ? "active" : ""}`}
+              role="tab"
+              aria-selected={activeTab === "signals"}
+              type="button"
+              onClick={() => setActiveTab("signals")}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v6H6zM8 11h8v10H8z" /></svg>
+              Signals
+            </button>
+            <button
+              className={`commandTab ${activeTab === "data" ? "active" : ""}`}
+              role="tab"
+              aria-selected={activeTab === "data"}
+              type="button"
+              onClick={() => setActiveTab("data")}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5zM8 9h8M8 13h8M8 17h5" /></svg>
+              Data
+            </button>
           </div>
 
-          <div className="commandControls">
-            <div className="segmentedControl" role="group" aria-label="Scenario mode">
-              <button
-                className={scenarioMode === "congestion" ? "active" : ""}
-                type="button"
-                onClick={() => setScenarioMode("congestion")}
-              >
-                Congestion drill
-              </button>
-              <button
-                className={scenarioMode === "baseline" ? "active" : ""}
-                type="button"
-                onClick={() => {
-                  setScenarioMode("baseline");
-                  setSignalStrategy("standard");
-                }}
-              >
-                Baseline
-              </button>
-            </div>
-
-            <label className="switchControl">
-              <input
-                type="checkbox"
-                checked={signalStrategy === "green-wave"}
-                onChange={(event) => {
-                  setScenarioMode("congestion");
-                  setSignalStrategy(event.target.checked ? "green-wave" : "standard");
-                }}
-              />
-              <span />
-              <strong>Proactive green wave</strong>
-            </label>
-
-            <div className="runControls">
-              <button className="primaryButton" type="button" onClick={() => setRunning(true)}>Run</button>
-              <button className="secondaryButton" type="button" onClick={() => setRunning(false)}>Freeze</button>
-            </div>
-          </div>
-
-          <div className="commandMetrics" aria-label="Managed corridor metrics">
-            {[
-              ["Queue", `${commandMetrics.totalQueue} m`, "managed approaches"],
-              ["Delay", `${commandMetrics.averageDelay} s`, "average per vehicle"],
-              ["Corridor speed", `${commandMetrics.corridorSpeed} km/h`, "Al Dorar to City Walk"],
-              ["Throughput", `${commandMetrics.throughput} veh/h`, signalStrategy === "green-wave" ? "protected progression" : "current plan"]
-            ].map(([label, value, meta]) => (
-              <div className="commandMetric" key={label}>
-                <span>{label}</span>
-                <strong>{value}</strong>
-                <small>{meta}</small>
+          <div className={`tabPanel ${activeTab === "map" ? "active" : ""}`}>
+            <div className="commandControls">
+              <div className="segmentedControl" role="group" aria-label="Scenario mode">
+                <button
+                  className={scenarioMode === "congestion" ? "active" : ""}
+                  type="button"
+                  onClick={() => setScenarioMode("congestion")}
+                >
+                  Congestion drill
+                </button>
+                <button
+                  className={scenarioMode === "baseline" ? "active" : ""}
+                  type="button"
+                  onClick={() => {
+                    setScenarioMode("baseline");
+                    setSignalStrategy("standard");
+                  }}
+                >
+                  Baseline
+                </button>
               </div>
-            ))}
-          </div>
-        </section>
 
-        <section className="statGrid" aria-label="Network metrics">
-          {[
-            ["OSM roads", osmMeta.roadCount.toLocaleString(), "Drivable ways inside the City Walk extract"],
-            ["Modeled lanes", metrics.modeledLanes.toLocaleString(), "Explicit OSM lane tags plus conservative defaults"],
-            ["Signals", osmSignals.length.toLocaleString(), "Traffic signal and signalized crossing nodes"],
-            ["Average speed", `${metrics.averageSpeed} km/h`, "Current simulated/provider segment average"]
-          ].map(([label, value, meta], index) => (
-            <article className="statCard reveal" key={label} style={{ "--i": index + 1 } as React.CSSProperties}>
-              <div className="statLabel">
-                <span className="statIcon"><Icon path="M5 12h14M12 5v14" /></span>
-                {label}
-              </div>
-              <strong>{value}</strong>
-              <span>{meta}</span>
-            </article>
-          ))}
-        </section>
+              <label className="switchControl">
+                <input
+                  type="checkbox"
+                  checked={signalStrategy === "green-wave"}
+                  onChange={(event) => {
+                    setScenarioMode("congestion");
+                    setSignalStrategy(event.target.checked ? "green-wave" : "standard");
+                  }}
+                />
+                <span />
+                <strong>Proactive green wave</strong>
+              </label>
 
-        <section className="mainGrid">
-          <article className="mapCard reveal" id="network" style={{ "--i": 5 } as React.CSSProperties}>
-            <div className="cardHeader mapHeader">
-              <div>
-                <h2>OSM Network Map</h2>
-                <p>Drag to pan; wheel or trackpad to zoom; click any road to inspect lane and tag data</p>
-              </div>
-              <div className="legend">
-                <span><i className="legendMotorway" /> arterial</span>
-                <span><i className="legendSecondary" /> collector</span>
-                <span><i className="legendAccess" /> access</span>
-                <span><i className="legendSignal" /> signal</span>
+              <div className="runControls">
+                <button className="primaryButton" type="button" onClick={() => setRunning(true)}>Run</button>
+                <button className="secondaryButton" type="button" onClick={() => setRunning(false)}>Freeze</button>
               </div>
             </div>
+
             <TrafficMap
               compiledRoads={compiledRoads}
               pedestrianWays={pedestrianWays}
@@ -1587,36 +1518,28 @@ export default function CityWalkDashboard() {
               selectedId={selectedId}
               signalStrategy={signalStrategy}
             />
-          </article>
 
-          <aside className="detailColumn">
-            <article className="detailCard reveal" style={{ "--i": 6 } as React.CSSProperties}>
-              <div className="cardHeader compact">
-                <h2>Selected Link</h2>
-                <span className="statusBadge">{selectedFlow.source}</span>
+            <div className="detailPanel">
+              <div className="detailSection">
+                <h3>Selected Link</h3>
+                <div className="selectedTitle">
+                  <strong>{selected.name}</strong>
+                  <span>{selected.ref || selected.highway} &middot; <span className="statusBadge">{selectedFlow.source}</span></span>
+                </div>
+                <dl className="detailList">
+                  <div><dt>OSM way</dt><dd>{selected.osmId}</dd></div>
+                  <div><dt>Class</dt><dd>{selected.highway}{selected.bridge ? "; bridge" : ""}{selected.tunnel ? "; tunnel" : ""}</dd></div>
+                  <div><dt>Lane model</dt><dd>{laneSummary(selected)}</dd></div>
+                  <div><dt>Speed</dt><dd>{selectedFlow.currentSpeed} / {selectedFlow.freeFlowSpeed} km/h</dd></div>
+                  <div><dt>Signals on link</dt><dd>{selectedCompiled?.stopControls.length ?? 0}</dd></div>
+                  <div><dt>Surface</dt><dd>{selected.surface}</dd></div>
+                </dl>
               </div>
-              <div className="selectedTitle">
-                <strong>{selected.name}</strong>
-                <span>{selected.ref || selected.highway}</span>
-              </div>
-              <dl className="detailList">
-                <div><dt>OSM way</dt><dd>{selected.osmId}</dd></div>
-                <div><dt>Class</dt><dd>{selected.highway}{selected.bridge ? "; bridge" : ""}{selected.tunnel ? "; tunnel" : ""}</dd></div>
-                <div><dt>Lane model</dt><dd>{laneSummary(selected)}</dd></div>
-                <div><dt>Speed</dt><dd>{selectedFlow.currentSpeed} / {selectedFlow.freeFlowSpeed} km/h</dd></div>
-                <div><dt>Signals on link</dt><dd>{selectedCompiled?.stopControls.length ?? 0}</dd></div>
-                <div><dt>Surface</dt><dd>{selected.surface}</dd></div>
-              </dl>
-            </article>
 
-            <article className="detailCard darkCard reveal" id="signals" style={{ "--i": 7 } as React.CSSProperties}>
-              <div className="cardHeader compact">
-                <h2>Signal Strategy</h2>
-                <span>{signalStrategy === "green-wave" ? "green wave" : scenarioMode === "congestion" ? "congestion drill" : "baseline"}</span>
-              </div>
-              <div className="managedList">
-                {managedPlan.map((intersection) => {
-                  return (
+              <div className="detailSection">
+                <h3>Signal Strategy &middot; {signalStrategy === "green-wave" ? "green wave" : scenarioMode === "congestion" ? "congestion drill" : "baseline"}</h3>
+                <div className="managedList">
+                  {managedPlan.map((intersection) => (
                     <button className="managedRow" key={intersection.id} type="button" onClick={() => selectManagedIntersection(intersection)}>
                       <span className="signalLamp" style={{ background: signalColor[intersection.phase.color] }} />
                       <div className="managedText">
@@ -1629,74 +1552,121 @@ export default function CityWalkDashboard() {
                         <span>{intersection.averageSpeed} km/h</span>
                       </div>
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </article>
-          </aside>
-        </section>
+            </div>
 
-        <section className="bottomGrid">
-          <article className="tableCard reveal" style={{ "--i": 8 } as React.CSSProperties}>
-            <div className="cardHeader">
-              <div>
-                <h2>Road Tags</h2>
-                <p>English OSM labels, lane tags, and current flow state</p>
-              </div>
-              <button className="secondaryButton small" type="button" onClick={() => setSearchTerm("")}>Clear search</button>
+            <div className="commandMetrics" aria-label="Managed corridor metrics">
+              {[
+                ["Queue", `${commandMetrics.totalQueue} m`, "managed approaches"],
+                ["Delay", `${commandMetrics.averageDelay} s`, "average per vehicle"],
+                ["Corridor speed", `${commandMetrics.corridorSpeed} km/h`, "Al Dorar to City Walk"],
+                ["Throughput", `${commandMetrics.throughput} veh/h`, signalStrategy === "green-wave" ? "protected progression" : "current plan"]
+              ].map(([label, value, meta]) => (
+                <div className="commandMetric" key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                  <small>{meta}</small>
+                </div>
+              ))}
             </div>
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Road</th>
-                    <th>Class</th>
-                    <th>Lanes</th>
-                    <th>Speed</th>
-                    <th>Turns</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRoadRows.map((road) => {
-                    const flow = flowForRoad(road, effectiveFlowById);
-                    const load = congestionRatio(flow);
-                    return (
-                      <tr key={road.id} onClick={() => setSelectedId(road.id)}>
-                        <td>{road.name}<span>{road.ref || `OSM ${road.osmId}`}</span></td>
-                        <td>{road.highway}</td>
-                        <td>{road.lanes}</td>
-                        <td>{flow.currentSpeed} km/h</td>
-                        <td>{road.turnLanes || "not tagged"}</td>
-                        <td><span className={load > 0.48 ? "statusBadge warning" : "statusBadge"}>{load > 0.48 ? "Loaded" : "Moving"}</span></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </article>
+          </div>
 
-          <article className="sourceCard reveal" id="data" style={{ "--i": 9 } as React.CSSProperties}>
-            <div className="cardHeader compact">
-              <h2>OSM Data</h2>
-              <span>ODbL attribution required</span>
+          <div className={`tabPanel ${activeTab === "signals" ? "active" : ""}`}>
+            <div className="commandControls">
+              <div className="segmentedControl" role="group" aria-label="Scenario mode">
+                <button
+                  className={scenarioMode === "congestion" ? "active" : ""}
+                  type="button"
+                  onClick={() => setScenarioMode("congestion")}
+                >
+                  Congestion drill
+                </button>
+                <button
+                  className={scenarioMode === "baseline" ? "active" : ""}
+                  type="button"
+                  onClick={() => {
+                    setScenarioMode("baseline");
+                    setSignalStrategy("standard");
+                  }}
+                >
+                  Baseline
+                </button>
+              </div>
+
+              <label className="switchControl">
+                <input
+                  type="checkbox"
+                  checked={signalStrategy === "green-wave"}
+                  onChange={(event) => {
+                    setScenarioMode("congestion");
+                    setSignalStrategy(event.target.checked ? "green-wave" : "standard");
+                  }}
+                />
+                <span />
+                <strong>Proactive green wave</strong>
+              </label>
             </div>
-            <div className="sourceList">
-              <div>
-                <strong>Snapshot</strong>
-                <p>Bounding box {mapBounds.minLat}, {mapBounds.minLon} to {mapBounds.maxLat}, {mapBounds.maxLon}; source base {osmMeta.sourceTimestamp}.</p>
-              </div>
-              <div>
-                <strong>Lane accuracy</strong>
-                <p>Lane count, turn lanes, one-way, bridges, tunnels, and English road names are read from OSM where tagged. Missing lane tags use conservative highway-class defaults and remain lower confidence.</p>
-              </div>
-              <div>
-                <strong>Simulation</strong>
-                <p>Vehicles follow stitched OSM routes across way splits, use lane offsets, slow by segment flow, and stop at nearby OSM traffic signal nodes. The congestion drill applies queues at three City Walk intersections; green wave opens consecutive managed signals.</p>
+
+            <div style={{ padding: "20px 18px" }}>
+              <div className="managedList">
+                {managedPlan.map((intersection) => (
+                  <button className="managedRow" key={intersection.id} type="button" onClick={() => selectManagedIntersection(intersection)}>
+                    <span className="signalLamp" style={{ background: signalColor[intersection.phase.color] }} />
+                    <div className="managedText">
+                      <strong>{intersection.label}</strong>
+                      <span>{intersection.corridor}; {intersection.phase.label}</span>
+                    </div>
+                    <div className="managedStats">
+                      <span>{intersection.queueMeters} m</span>
+                      <span>{intersection.delaySeconds} s</span>
+                      <span>{intersection.averageSpeed} km/h</span>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
-          </article>
+          </div>
+
+          <div className={`tabPanel ${activeTab === "data" ? "active" : ""}`}>
+            <div className="tableSection">
+              <h3>Road Tags &middot; English OSM labels, lane tags, and current flow state</h3>
+              <div style={{ marginBottom: 10 }}>
+                <button className="secondaryButton small" type="button" onClick={() => setSearchTerm("")}>Clear search</button>
+              </div>
+              <div className="tableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Road</th>
+                      <th>Class</th>
+                      <th>Lanes</th>
+                      <th>Speed</th>
+                      <th>Turns</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRoadRows.map((road) => {
+                      const flow = flowForRoad(road, effectiveFlowById);
+                      const load = congestionRatio(flow);
+                      return (
+                        <tr key={road.id} onClick={() => { setSelectedId(road.id); setActiveTab("map"); }}>
+                          <td>{road.name}<span>{road.ref || `OSM ${road.osmId}`}</span></td>
+                          <td>{road.highway}</td>
+                          <td>{road.lanes}</td>
+                          <td>{flow.currentSpeed} km/h</td>
+                          <td>{road.turnLanes || "not tagged"}</td>
+                          <td><span className={load > 0.48 ? "statusBadge warning" : "statusBadge"}>{load > 0.48 ? "Loaded" : "Moving"}</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </section>
       </main>
     </div>

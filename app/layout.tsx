@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CityWalk Traffic Twin",
-  description: "A live digital twin dashboard for City Walk Dubai traffic infrastructure.",
+  title: "SEHLI",
+  description: "A live digital twin command center for City Walk Dubai traffic infrastructure.",
   icons: {
     icon: "/icon.svg"
   }
