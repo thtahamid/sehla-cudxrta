@@ -11,7 +11,13 @@
    VIEWPORT FITTING: MANDATORY BASE STYLES
    (per frontend-slides skill — do not remove)
    =========================================== */
-html, body{ height:100%; overflow-x:hidden; }
+/* The document/viewport is the single scroll container AND snap container.
+   NOTE: do not put height:100% + overflow-x:hidden on body — that combo makes
+   body its own nested scroller (overflow-x:hidden forces overflow-y:auto, and
+   height:100% caps it to one viewport), so scrolling happens in body while
+   scroll-snap lives on html → the deck snaps back to the first slide.
+   overflow-x:clip prevents horizontal scroll WITHOUT establishing a scroller. */
+html, body{ margin:0; overflow-x:clip; }
 html{ scroll-snap-type:y mandatory; scroll-behavior:smooth; }
 .slide{
   width:100vw; height:100vh; height:100dvh; overflow:hidden;
