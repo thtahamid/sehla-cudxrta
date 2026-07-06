@@ -492,7 +492,25 @@ h1.slide-title .accent.m{ color:var(--magenta); }
     </div>
   </section>
 
-  <!-- 5: DEMO — transition cue to the live dashboard -->
+  <!-- 5: SUMO RL — DIGITAL TWIN + RL (sets up the live demo) -->
+  <section class="slide" data-title="SUMO RL Optimization">
+    <div class="slide-content body-block">
+      <p class="eyebrow reveal" style="--d:0">The Digital Twin &amp; RL Engine</p>
+      <h1 class="slide-title reveal" style="--d:1">SUMO reinforcement learning that keeps <span class="accent m">getting better</span></h1>
+      <div class="flow reveal" style="--d:2">
+        <div class="step"><div class="tag">Simulate</div><h4>SUMO Microsimulation</h4><p>A calibrated digital twin of the junction replays real RTA data, modelling every vehicle.</p></div>
+        <div class="arrow">&#8594;</div>
+        <div class="step"><div class="tag">Learn</div><h4>RL Agent</h4><p>Rewarded for throughput and shorter waits, it improves the signal policy over thousands of episodes.</p></div>
+        <div class="arrow">&#8594;</div>
+        <div class="step"><div class="tag">Stress-Test</div><h4>Scenario Simulation</h4><p>Events, incidents, road closures &mdash; tested safely offline before any real change.</p></div>
+        <div class="arrow">&#8594;</div>
+        <div class="step safety"><div class="tag">Deploy</div><h4>Validated Policy</h4><p>The best policy feeds the live adaptive layer &mdash; still gated by the deterministic safety filter.</p></div>
+      </div>
+      <div class="callout reveal" style="--d:3">This is the <b>engine inside Sehla</b> &mdash; a continuous loop that keeps re-training as new data arrives, so every improvement is proven in simulation, and any scenario stress-tested, <b>before it ever reaches a real signal. Now let's see it run live.</b></div>
+    </div>
+  </section>
+
+  <!-- 6: DEMO — transition cue to the live dashboard -->
   <section class="slide" data-title="Live Demo">
     <div class="slide-content demo-cta">
       <p class="eyebrow reveal" style="--d:0">Live Demo</p>
@@ -505,24 +523,6 @@ h1.slide-title .accent.m{ color:var(--magenta); }
         <div class="st"><div class="n">03</div><p>Toggle to Sehla-optimized state &mdash; watch queues clear</p></div>
         <div class="st"><div class="n">04</div><p>Reasoning Panel narrates every decision in plain English</p></div>
       </div>
-    </div>
-  </section>
-
-  <!-- 6: SUMO RL — CONTINUOUS OPTIMIZATION (complements the demo) -->
-  <section class="slide" data-title="SUMO RL Optimization">
-    <div class="slide-content body-block">
-      <p class="eyebrow reveal" style="--d:0">Beyond the Demo &mdash; Our Best Complement</p>
-      <h1 class="slide-title reveal" style="--d:1">SUMO reinforcement learning that keeps <span class="accent m">getting better</span></h1>
-      <div class="flow reveal" style="--d:2">
-        <div class="step"><div class="tag">Simulate</div><h4>SUMO Microsimulation</h4><p>A calibrated digital twin of the junction replays real RTA data, modelling every vehicle.</p></div>
-        <div class="arrow">&#8594;</div>
-        <div class="step"><div class="tag">Learn</div><h4>RL Agent</h4><p>Rewarded for throughput and shorter waits, it improves the signal policy over thousands of episodes.</p></div>
-        <div class="arrow">&#8594;</div>
-        <div class="step"><div class="tag">Stress-Test</div><h4>Scenario Simulation</h4><p>Events, incidents, road closures &mdash; tested safely offline before any real change.</p></div>
-        <div class="arrow">&#8594;</div>
-        <div class="step safety"><div class="tag">Deploy</div><h4>Validated Policy</h4><p>The best policy feeds the live adaptive layer &mdash; still gated by the deterministic safety filter.</p></div>
-      </div>
-      <div class="callout reveal" style="--d:3">The demo shows Sehla reasoning in real time. <b>SUMO RL is the engine behind it</b> &mdash; a continuous loop that keeps re-training as new data arrives, so every improvement is proven in simulation, and any scenario stress-tested, <b>before it ever reaches a real signal.</b></div>
     </div>
   </section>
 
