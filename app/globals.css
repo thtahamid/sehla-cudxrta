@@ -834,3 +834,205 @@ td:first-child span {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   Twin Brain - autonomous congestion agent advisory rail
+   ============================================================ */
+.agentRail {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+.agentRailHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.agentRailBrand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.agentRailBrand strong {
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0.1px;
+  display: block;
+}
+
+.agentRailSub {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.agentDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.agentDot.pulsing {
+  animation: agentPulse 1.4s infinite;
+}
+
+@keyframes agentPulse {
+  0% { box-shadow: 0 0 0 0 rgba(46, 196, 160, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(46, 196, 160, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(46, 196, 160, 0); }
+}
+
+.agentAnalyzeBtn {
+  margin-left: auto;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent-hover);
+  background: var(--accent-light);
+  border: 1px solid var(--accent-icon-border);
+  border-radius: 7px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 160ms var(--ease-out-quart);
+}
+
+.agentAnalyzeBtn:hover:not(:disabled) { background: rgba(46, 196, 160, 0.16); }
+.agentAnalyzeBtn:disabled { opacity: 0.55; cursor: default; }
+
+.agentRailNote {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 12px;
+  line-height: 1.5;
+}
+.agentRailNote.error { color: var(--status-error); }
+
+.agentSkeletonLine {
+  display: block;
+  height: 9px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  background: linear-gradient(90deg, var(--surface-raised) 25%, var(--border-light) 37%, var(--surface-raised) 63%);
+  background-size: 400% 100%;
+  animation: agentShimmer 1.3s ease infinite;
+}
+.agentSkeletonLine.short { width: 62%; }
+
+@keyframes agentShimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+/* Advisory card */
+.advisoryCard {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.advisoryCard.sev-act { border-color: rgba(245, 158, 11, 0.4); }
+.advisoryCard.sev-watch { border-color: rgba(245, 158, 11, 0.3); }
+.advisoryCard.sev-info { border-color: var(--accent-icon-border); }
+.advisoryCard.applied { border-color: var(--accent-icon-border); }
+
+.advisoryTop {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--border-light);
+}
+.advisoryCard.sev-act .advisoryTop { background: rgba(245, 158, 11, 0.10); }
+.advisoryCard.sev-watch .advisoryTop { background: rgba(245, 158, 11, 0.06); }
+.advisoryCard.sev-info .advisoryTop { background: var(--accent-light); }
+.advisoryCard.applied .advisoryTop { background: var(--accent-light); }
+
+.sevChip {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 6px;
+}
+.sevChip.sev-act { background: var(--status-warning); color: #3a2a00; }
+.sevChip.sev-watch { background: rgba(245, 158, 11, 0.2); color: #A16207; }
+.sevChip.sev-info { background: var(--accent); color: #063f33; }
+.sevChip.applied { background: var(--accent); color: #063f33; }
+
+.advisoryCorridor { font-weight: 650; font-size: 14px; }
+.advisoryConf { margin-left: auto; font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+.advisoryBody { padding: 14px 15px; }
+.advisoryRationale { font-size: 14px; font-weight: 500; line-height: 1.5; }
+
+.traceToggle {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--accent-hover);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin-top: 12px;
+  cursor: pointer;
+}
+
+.advisoryTrace {
+  margin-top: 8px;
+  border-left: 2px solid var(--accent);
+  padding: 3px 0 3px 13px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+.traceLabel {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  font-weight: 700;
+  color: var(--accent-hover);
+  margin-bottom: 3px;
+}
+
+.advisoryImpact { display: flex; gap: 22px; margin-top: 16px; flex-wrap: wrap; }
+.impactMetric { display: flex; flex-direction: column; }
+.impactValue { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.impactValue.good { color: var(--accent-hover); }
+.impactValue.bad { color: var(--status-error); }
+.impactValue b { font-weight: 700; }
+.impactLabel { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+.advisoryActions {
+  display: flex;
+  gap: 9px;
+  padding: 12px 15px;
+  border-top: 1px solid var(--border-light);
+  background: var(--surface-raised);
+}
+.advisoryBtn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 160ms var(--ease-out-quart);
+}
+.advisoryBtn.primary { background: var(--accent); color: #fff; }
+.advisoryBtn.primary:hover { background: var(--accent-hover); }
+.advisoryBtn.ghost { background: transparent; color: var(--text-secondary); border-color: var(--border); }
+.advisoryBtn.ghost:hover { background: var(--bg); }

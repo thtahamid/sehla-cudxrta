@@ -12,6 +12,9 @@ import {
   type OsmRoad,
   type OsmSignal
 } from "@/app/data/osm-citywalk";
+import AgentAdvisoryRail, { type AppliedResult, type RailStatus } from "@/app/components/AgentAdvisoryRail";
+import { useCongestionWatcher } from "@/app/components/useCongestionWatcher";
+import type { Advisory, AdvisoryResponse, Snapshot } from "@/app/lib/advisory";
 
 type Flow = {
   segmentId: string;
@@ -1395,6 +1398,144 @@ export default function CityWalkDashboard() {
     }
   }
 
+  // --- Twin Brain: autonomous congestion agent (Mistral) ---
+  const [railStatus, setRailStatus] = useState<RailStatus>("idle");
+  const [advisory, setAdvisory] = useState<Advisory | null>(null);
+  const [advisoryModel, setAdvisoryModel] = useState<string | null>(null);
+  const [advisorySource, setAdvisorySource] = useState<"agent" | "fallback" | null>(null);
+  const [advisoryReason, setAdvisoryReason] = useState<string | null>(null);
+  const [advisoryError, setAdvisoryError] = useState<string | null>(null);
+  const [appliedResult, setAppliedResult] = useState<AppliedResult | null>(null);
+  const conversationIdRef = useRef<string | undefined>(undefined);
+  const toolCallIdRef = useRef<string | undefined>(undefined);
+  const pendingDecisionRef = useRef<"approved" | "dismissed" | "superseded" | undefined>(undefined);
+  const analyzingRef = useRef(false);
+  const commandMetricsRef = useRef(commandMetrics);
+  const managedPlanRef = useRef(managedPlan);
+  useEffect(() => {
+    commandMetricsRef.current = commandMetrics;
+    managedPlanRef.current = managedPlan;
+  }, [commandMetrics, managedPlan]);
+
+  const runAdvisory = useCallback(
+    async (reason: string) => {
+      if (analyzingRef.current) return;
+      analyzingRef.current = true;
+      setAdvisoryReason(reason);
+      setRailStatus("analyzing");
+
+      const plan = managedPlanRef.current;
+      const metrics = commandMetricsRef.current;
+      const snapshot: Snapshot = {
+        scenarioMode,
+        signalStrategy,
+        commandMetrics: {
+          totalQueue: Math.round(metrics.totalQueue),
+          averageDelay: metrics.averageDelay,
+          corridorSpeed: metrics.corridorSpeed,
+          throughput: metrics.throughput
+        },
+        intersections: plan.map((i) => ({
+          label: i.label,
+          corridor: i.corridor,
+          averageSpeed: i.averageSpeed,
+          queueMeters: Math.round(i.queueMeters),
+          delaySeconds: Math.round(i.delaySeconds),
+          phase: i.phase.color
+        }))
+      };
+
+      try {
+        const res = await fetch("/api/agent/advisory", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            snapshot,
+            conversationId: conversationIdRef.current,
+            pendingToolCallId: toolCallIdRef.current,
+            lastDecision: pendingDecisionRef.current,
+            reason
+          })
+        });
+        const data: AdvisoryResponse = await res.json();
+        if (data.mode === "disabled") {
+          setRailStatus("disabled");
+        } else if (data.mode === "error") {
+          setAdvisoryError(data.message);
+          setRailStatus("error");
+        } else {
+          setAdvisory(data.advisory);
+          setAdvisoryModel(data.model);
+          setAdvisorySource(data.source);
+          conversationIdRef.current = data.conversationId || undefined;
+          toolCallIdRef.current = data.toolCallId || undefined;
+          pendingDecisionRef.current = undefined;
+          setRailStatus("advisory");
+        }
+      } catch (error) {
+        setAdvisoryError(error instanceof Error ? error.message : "network error");
+        setRailStatus("error");
+      } finally {
+        analyzingRef.current = false;
+      }
+    },
+    [scenarioMode, signalStrategy]
+  );
+
+  useCongestionWatcher({
+    totalQueue: commandMetrics.totalQueue,
+    averageDelay: commandMetrics.averageDelay,
+    signalStrategy,
+    enabled: railStatus !== "disabled",
+    onFire: runAdvisory
+  });
+
+  // Queue/delay are deterministic functions of (scenario, strategy), so we can
+  // project the post-action totals directly - no waiting on a re-render.
+  function projectTotals(scenario: ScenarioMode, strategy: SignalStrategy) {
+    const totalQueue = managedIntersections.reduce((sum, i) => sum + queueForIntersection(i, scenario, strategy), 0);
+    const averageDelay = Math.round(
+      managedIntersections.reduce((sum, i) => sum + delayForIntersection(i, scenario, strategy), 0) /
+        Math.max(managedIntersections.length, 1)
+    );
+    return { totalQueue, averageDelay };
+  }
+
+  function applyAdvisory() {
+    if (!advisory) return;
+    const rec = advisory.recommendation;
+    const before = { totalQueue: commandMetrics.totalQueue, averageDelay: commandMetrics.averageDelay };
+    let after = before;
+
+    if (rec.action === "set_signal_strategy" && rec.params.strategy) {
+      after = projectTotals(scenarioMode, rec.params.strategy);
+      setSignalStrategy(rec.params.strategy);
+    } else if (rec.action === "set_scenario" && rec.params.scenario) {
+      after = projectTotals(rec.params.scenario, signalStrategy);
+      setScenarioMode(rec.params.scenario);
+    } else if (rec.action === "focus_intersection") {
+      const target = managedPlanRef.current.find(
+        (i) => i.label === advisory.corridor || i.corridor === advisory.corridor || i.id === rec.params.intersectionId
+      );
+      if (target) selectManagedIntersection(target);
+    }
+
+    pendingDecisionRef.current = "approved";
+    setAppliedResult({
+      queueBefore: before.totalQueue,
+      queueAfter: after.totalQueue,
+      delayBefore: before.averageDelay,
+      delayAfter: after.averageDelay
+    });
+    setRailStatus("applied");
+  }
+
+  function dismissAdvisory() {
+    pendingDecisionRef.current = "dismissed";
+    setAdvisory(null);
+    setRailStatus("idle");
+  }
+
   return (
     <div className="appShell">
       <header className="pageHeader">
@@ -1431,6 +1572,18 @@ export default function CityWalkDashboard() {
       </header>
 
       <main className="content">
+        <AgentAdvisoryRail
+          status={railStatus}
+          advisory={advisory}
+          model={advisoryModel}
+          source={advisorySource}
+          reason={advisoryReason}
+          appliedResult={appliedResult}
+          errorMessage={advisoryError}
+          onApprove={applyAdvisory}
+          onDismiss={dismissAdvisory}
+          onAnalyze={() => runAdvisory("manual")}
+        />
         <section className="commandCenter reveal" style={{ "--i": 0 } as React.CSSProperties}>
           <div className="commandTabs" role="tablist">
             <button
